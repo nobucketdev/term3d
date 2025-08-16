@@ -4,6 +4,7 @@ import math
 import os
 from term3d.core import term3d, Vec3
 from term3d.shpbuild import build_cube, build_uv_sphere, build_cylinder, build_torus
+from term3d.utils import set_mat
 
 try:
     cols, rows = os.get_terminal_size(0)
@@ -16,7 +17,17 @@ except Exception:
 WIDTH_CHARS = max(40, min(140, cols))
 HEIGHT_CHARS = max(12, min(60, rows - 2))
 
-print("Welcome to the orbit.py test of term3d engine\nPlease maximize terminal size and enter 0 - 7 quality setting\n0-1: Very Low, 2: Low, 3: Normal, 4-5: High, 6: Very High, 7: Extreme")
+print("Welcome to the orbit.py test of term3d engine")
+print(f"Terminal size: {WIDTH_CHARS}x{HEIGHT_CHARS}")
+print("This test show a big wireframe cube in them middle of the scene")
+print("There is a flat shader(material) sphere and cylinder, and a Phong shader Donut orbiting around the cube")
+print("Please maximize terminal size and enter 0 - 7 quality setting")
+print("0-1: Very Low")
+print("2: Low")
+print("3: Normal")
+print("4-5: High")
+print("6: Very High")
+print("7: Extreme")
 valid_qualities = {0, 1, 2, 3, 4, 5, 6, 7}
 while True:
     try:
@@ -40,15 +51,19 @@ class OrbitScene:
         # Create a large central cube
         self.main_cube = build_cube(size=2.5)
         self.engine.add_mesh(self.main_cube)
-        self.engine.register_for_rotation(self.main_cube) 
 
         self.orbiting_sphere = build_uv_sphere(radius=0.5)
         self.engine.add_mesh(self.orbiting_sphere)
 
         self.orbiting_cylinder = build_cylinder(radius=0.4, height=1.5)
         self.engine.add_mesh(self.orbiting_cylinder)
+
         self.orbiting_torus = build_torus(R=1.0, r=0.5, segments_R=30, segments_r=10)
         self.engine.add_mesh(self.orbiting_torus)
+
+        # Set materials for objects
+        set_mat(self.main_cube, 'wireframe')  # Set the main cube to wireframe material
+        set_mat(self.orbiting_torus, 'phong')  # Set the orbiting donut to phong material
 
         self.engine.reset_camera(stepback=-10)
         
@@ -71,7 +86,7 @@ class OrbitScene:
         self._bind_camera_keys()
 
     def _update_scene(self, dt):
-        for mesh in self.engine.rotating_meshes:
+        for mesh in self.engine.meshes:
             mesh.rot.x += 0.5 * dt
             mesh.rot.y += 0.8 * dt
 
@@ -79,6 +94,7 @@ class OrbitScene:
         x_s = self.orbit_radius_sphere * math.cos(self.orbit_angle_sphere)
         z_s = self.orbit_radius_sphere * math.sin(self.orbit_angle_sphere)
         self.orbiting_sphere.pos = Vec3(x_s, 0, z_s)
+        
 
         self.orbit_angle_cylinder += 0.85 * dt
         x_c = self.orbit_radius_cylinder * math.cos(self.orbit_angle_cylinder)

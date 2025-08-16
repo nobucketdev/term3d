@@ -70,10 +70,11 @@ class Light:
 
 # Mesh and Scene classes
 class Mesh:
-    def __init__(self, verts, faces, colors):
+    def __init__(self, verts, faces, colors, material='flat'):
         self.verts = verts
         self.faces = faces
         self.vcols = colors
+        self.material = material  # 'flat', 'phong', 'wireframe'
         self.pos = Vec3(0, 0, 0)
         self.rot = Vec3(0, 0, 0)
         self.scale = Vec3(1, 1, 1)

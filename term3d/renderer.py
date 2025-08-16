@@ -209,7 +209,7 @@ class Renderer:
             intensity = nx * light_x + ny * light_y + nz * light_z
             
             # Use the absolute value of intensity to light both front and back faces.
-            scaled_intensity = abs(intensity) * light_intensity
+            scaled_intensity = max(0, intensity) * light_intensity
             
             lr, lg, lb = light_color
             total_r += br * lr * scaled_intensity
@@ -221,12 +221,84 @@ class Renderer:
         final_b = clamp(int(total_b), 0, 255)
 
         return final_r, final_g, final_b
-        
+    
+    def _calculate_phong_color(self, base_color, normal, view_dir, lights, ambient_light):
+        """Phong shading: ambient + diffuse + specular."""
+        br, bg, bb = base_color
+        ar, ag, ab = ambient_light
+        # Phong parameters
+        specular_strength = 0.5
+        shininess = 32
+
+        total_r = br * ar
+        total_g = bg * ag
+        total_b = bb * ab
+
+        for light_dir, light_color, light_intensity in lights:
+            # Diffuse
+            light_vec = -light_dir.norm()
+            diff = max(normal.dot(light_vec), 0.0)
+            lr, lg, lb = light_color
+            total_r += br * lr * diff * light_intensity
+            total_g += bg * lg * diff * light_intensity
+            total_b += bb * lb * diff * light_intensity
+
+            # Specular
+            reflect_dir = (normal * 2 * normal.dot(light_vec) - light_vec).norm()
+            spec = max(view_dir.dot(reflect_dir), 0.0) ** shininess
+            total_r += 255 * lr * specular_strength * spec * light_intensity
+            total_g += 255 * lg * specular_strength * spec * light_intensity
+            total_b += 255 * lb * specular_strength * spec * light_intensity
+
+        final_r = clamp(int(total_r), 0, 255)
+        final_g = clamp(int(total_g), 0, 255)
+        final_b = clamp(int(total_b), 0, 255)
+        return final_r, final_g, final_b
+
+    def _draw_wireframe(self, mesh, projected_verts, color=(255,255,255)):
+        """Draws triangle edges as lines (Bresenham) with depth check."""
+        pixel_width, pixel_height = self.pixel_width, self.pixel_height
+        color_buffer = self.color_buffer
+        depth_buffer = self.depth_buffer
+        for i0, i1, i2 in mesh.faces:
+            for a, b in [(i0, i1), (i1, i2), (i2, i0)]:
+                x0, y0, z0 = projected_verts[a]
+                x1, y1, z1 = projected_verts[b]
+                # Bresenham's line algorithm with depth interpolation
+                dx = abs(x1 - x0)
+                dy = abs(y1 - y0)
+                sx = 1 if x0 < x1 else -1
+                sy = 1 if y0 < y1 else -1
+                err = dx - dy
+                x, y = x0, y0
+                steps = max(dx, dy) if max(dx, dy) > 0 else 1
+                for i in range(steps + 1):
+                    t = i / steps if steps > 0 else 0
+                    z = z0 * (1 - t) + z1 * t
+                    if 0 <= x < pixel_width and 0 <= y < pixel_height:
+                        idx = y * pixel_width + x
+                        if z < depth_buffer[idx]:
+                            depth_buffer[idx] = z
+                            color_buffer[idx] = (color[0], color[1], color[2], 1)
+                    if x == x1 and y == y1:
+                        break
+                    e2 = 2 * err
+                    if e2 > -dy:
+                        err -= dy
+                        x += sx
+                    if e2 < dx:
+                        err += dx
+                        y += sy
+
     def _rasterize_triangles(self, mesh, transformed_verts, projected_verts, lights, ambient):
         """
         Rasterizes each triangle of the mesh using incremental barycentric coordinates.
         This method fills the color and depth buffers.
         """
+        if mesh.material == 'wireframe':
+            self._draw_wireframe(mesh, projected_verts)
+            return
+
         pixel_width, pixel_height = self.pixel_width, self.pixel_height
         depth_buffer = self.depth_buffer
         color_buffer = self.color_buffer
@@ -243,11 +315,14 @@ class Renderer:
             # Backface culling: Check if the triangle is facing away from the camera.
             # Use the sign of the cross product for the area.
             cross_product_area = (x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0)
+            
+            # Handle the case of zero-area triangles.
             if cross_product_area == 0:
                 continue
-            
-            inv_area = 1.0 / cross_product_area
 
+            # This line was missing! It calculates the inverse area.
+            inv_area = 1.0 / cross_product_area
+            
             # Find the bounding box for the triangle.
             min_x = max(0, min(x0, x1, x2))
             max_x = min(pixel_width - 1, max(x0, x1, x2))
@@ -257,17 +332,32 @@ class Renderer:
             if min_x > max_x or min_y > max_y:
                 continue
 
-            # Calculate the face normal for flat shading.
+            # Calculate the face normal.
             v0_world, v1_world, v2_world = transformed_verts[i0], transformed_verts[i1], transformed_verts[i2]
             face_normal = (v1_world - v0_world).cross(v2_world - v0_world).norm()
-
-            # Calculate the average color for flat shading.
+            
+            # The average color for the triangle.
             avg_color = ((mesh.vcols[i0][0] + mesh.vcols[i1][0] + mesh.vcols[i2][0]) / 3,
                          (mesh.vcols[i0][1] + mesh.vcols[i1][1] + mesh.vcols[i2][1]) / 3,
                          (mesh.vcols[i0][2] + mesh.vcols[i1][2] + mesh.vcols[i2][2]) / 3)
-                         
-            final_color = self._calculate_flat_color(avg_color, face_normal, lights, ambient)
             
+            # Determine if the front or back face is visible based on the cross product.
+            is_front_face = cross_product_area > 0
+
+            # Calculate the final color based on the visible side.
+            if mesh.material == 'phong':
+                tri_center = (v0_world + v1_world + v2_world) * (1/3)
+                view_dir = (Vec3(0,0,0) - tri_center).norm()
+                if is_front_face:
+                    final_color = self._calculate_phong_color(avg_color, face_normal, view_dir, lights, ambient)
+                else:
+                    final_color = self._calculate_phong_color(avg_color, -face_normal, view_dir, lights, ambient)
+            else: # 'flat' shading
+                if is_front_face:
+                    final_color = self._calculate_flat_color(avg_color, face_normal, lights, ambient)
+                else:
+                    final_color = self._calculate_flat_color(avg_color, -face_normal, lights, ambient)
+
             # The alpha value is 1 for any pixel that gets rendered.
             rgba = (final_color[0], final_color[1], final_color[2], 1)
 
