@@ -38,6 +38,7 @@ while True:
     except ValueError:
         print("Please type a number from 0-7.")
 
+
 class OrbitScene:
     def __init__(self):
         self.engine = term3d(WIDTH_CHARS, HEIGHT_CHARS)
@@ -63,7 +64,7 @@ class OrbitScene:
 
         # Set materials for objects
         set_mat(self.main_cube, 'wireframe')  # Set the main cube to wireframe material
-        set_mat(self.orbiting_torus, 'phong')  # Set the orbiting donut to phong material
+        set_mat(self.orbiting_torus, 'phong')  # Set the orbiting donut to Phong material
 
         self.engine.reset_camera(stepback=-10)
         
@@ -124,17 +125,10 @@ class OrbitScene:
                 pass
         
     def _bind_camera_keys(self):
-
-        if os.name == 'nt':  # Windows
-            key_up = 'i'
-            key_down = 'k'
-            key_left = 'j'
-            key_right = 'l'
-        else:                # Unix-like
-            key_up = '\x1b[A'
-            key_down = '\x1b[B'
-            key_left = '\x1b[D'
-            key_right = '\x1b[C'
+        key_up = 'i'
+        key_down = 'k'
+        key_left = 'j'
+        key_right = 'l'
 
         def move_camera_relative(dx=0, dy=0, dz=0):
             pitch = self.engine.camera.rot.x

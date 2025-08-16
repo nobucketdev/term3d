@@ -41,7 +41,7 @@ else:
     print("Using default Rainbow colors.")
 
 material = "phong"
-print("Select a meterial (0: flat, 1: phong, 2: wireframe)")
+print("Select a material (0: flat, 1: phong, 2: wireframe)")
 valid_mat = {0, 1, 2}
 while True:
     try:
