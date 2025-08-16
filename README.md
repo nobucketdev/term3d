@@ -26,3 +26,8 @@ Term3D is a lightweight 3D graphics engine written in Python, designed to render
 - **Per-Object Movement & Rotation API** Make it easy animate an object without suffer FPS drop due to object creation and deletion.
 
 - **Status Overlay:** An optional overlay displays real-time FPS, camera position, and other scene information for debugging.
+
+## ⚡ Recommended Interpreter
+
+Term3D runs on **CPython 3.9+**, but for the best performance we strongly suggest using **PyPy3**.  
+Because of its JIT compiler, PyPy3 can render scenes **2–5× faster** than CPython 🚀
