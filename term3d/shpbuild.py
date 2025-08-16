@@ -6,10 +6,11 @@ def clamp(v, a, b): return a if v < a else (b if v > b else v)
 
 class Mesh:
     """Represents a 3D object with vertices, faces, and vertex colors."""
-    def __init__(self, verts, faces, colors):
+    def __init__(self, verts, faces, colors, material='flat'):
         self.verts = verts
         self.faces = faces
         self.vcols = colors
+        self.material = material  # 'flat', 'phong', 'wireframe'
         self.pos = Vec3(0, 0, 0)
         self.rot = Vec3(0, 0, 0)
         self.scale = Vec3(1, 1, 1)

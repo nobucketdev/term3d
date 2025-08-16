@@ -8,6 +8,7 @@ from term3d.shpbuild import(
     build_dinis_surface, build_conical_helix, build_catenoid,
     build_capsule
 )
+from term3d.utils import set_mat
 
 print("Welcome to the shape_show.py test of term3d engine\nPlease maximize terminal size and enter 0 - 7 quality setting\n0-1: Very Low, 2: Low, 3: Normal, 4-5: High, 6: Very High, 7: Extreme")
 valid_qualities = {0, 1, 2, 3, 4, 5, 6, 7}
@@ -39,6 +40,24 @@ if color_choice == '2':
 else:
     print("Using default Rainbow colors.")
 
+material = "phong"
+print("Select a meterial (0: flat, 1: phong, 2: wireframe)")
+valid_mat = {0, 1, 2}
+while True:
+    try:
+        m = int(input("Quality: "))
+        if m in valid_mat:
+            break
+        print("Please type a number from 0-2")
+    except ValueError:
+        print("Please type a number from 0-2")
+        
+if m == 0:
+    material = "flat"
+elif m == 1:
+    material = "phong"
+elif m == 2:
+    material = "wireframe"
 
 def main():
     width, height = 80, 40
@@ -68,6 +87,7 @@ def main():
     current_mesh = shapes[index][1]
     engine.add_mesh(current_mesh)
     engine.register_for_rotation(current_mesh)
+    set_mat(current_mesh, material)  # Set the initial mesh to phong material
     
     rotation_step = 0.1
     zoom = -5
@@ -116,6 +136,7 @@ def main():
         current_mesh = shapes[index][1]
         engine.add_mesh(current_mesh)
         engine.register_for_rotation(current_mesh)
+        set_mat(current_mesh, material)
 
     def prev_shape():
         nonlocal index, current_mesh, auto_rotate
@@ -126,7 +147,7 @@ def main():
         current_mesh = shapes[index][1]
         engine.add_mesh(current_mesh)
         engine.register_for_rotation(current_mesh)
-
+        set_mat(current_mesh, material)
     def zoom_in():
         nonlocal zoom, auto_rotate
         auto_rotate = False
