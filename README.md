@@ -3,6 +3,10 @@
 
 Term3D is a lightweight 3D graphics engine written in Python, designed to render 3D scenes directly in your terminal. It's built to be a simple, accessible library for creating and visualizing 3D content in a text-based environment.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue?style=flat-square)](https://www.python.org/downloads/)
+
+
 ## Features
 
 - **Unicode Half-Block Rendering:** Utilizes the Unicode half-block character (`▀`) to achieve a higher vertical resolution, packing two "pixels" into each character space.
