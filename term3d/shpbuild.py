@@ -1,40 +1,10 @@
 import math
 from .vec3lib import Vec3
+from .objects import Mesh
 
 # Clamp helper
 def clamp(v, a, b): return a if v < a else (b if v > b else v)
 
-class Mesh:
-    """Represents a 3D object with vertices, faces, and vertex colors."""
-    def __init__(self, verts, faces, colors, material='flat'):
-        self.verts = verts
-        self.faces = faces
-        self.vcols = colors
-        self.material = material  # 'flat', 'phong', 'wireframe'
-        self.pos = Vec3(0, 0, 0)
-        self.rot = Vec3(0, 0, 0)
-        self.scale = Vec3(1, 1, 1)
-        self.min_v = Vec3(0, 0, 0)
-        self.max_v = Vec3(0, 0, 0)
-        self.calculate_bounds()
-
-    def calculate_bounds(self):
-        """Calculates the axis-aligned bounding box (AABB) for the mesh."""
-        if not self.verts:
-            return
-
-        min_x = min(v.x for v in self.verts)
-        min_y = min(v.y for v in self.verts)
-        min_z = min(v.z for v in self.verts)
-
-        max_x = max(v.x for v in self.verts)
-        max_y = max(v.y for v in self.verts)
-        max_z = max(v.z for v in self.verts)
-
-        self.min_v = Vec3(min_x, min_y, min_z)
-        self.max_v = Vec3(max_x, max_y, max_z)
-        
-        
 
 
 # Simple mesh (cube) generator for example
