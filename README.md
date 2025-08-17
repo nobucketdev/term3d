@@ -15,7 +15,7 @@ Term3D is a lightweight 3D graphics engine written in Python, designed to render
 
 - **Mesh Rendering:** Supports rendering of 3D meshes with triangle rasterization and a Z-buffer for correct depth occlusion.
 
-- **Lighting:** Includes support for multiple directional lights with adjustable color and intensity.
+- **Lighting:** Includes support for multiple directional lights with adjustable color and intensity, including Directional and Ambient light
 
 - **Shading Option:** Support Flat, Phone and wireframe material.
 
