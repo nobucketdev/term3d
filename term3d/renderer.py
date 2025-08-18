@@ -135,12 +135,19 @@ class Renderer:
                           self.engine_ref.ambient_light[1] * COLOR_SCALE,
                           self.engine_ref.ambient_light[2] * COLOR_SCALE)
                           
-        lights_scaled = [
-            (light.direction, 
-             (light.color[0] * COLOR_SCALE, light.color[1] * COLOR_SCALE, light.color[2] * COLOR_SCALE),
-             light.intensity)
-            for light in lights
-        ]
+        lights_scaled = []
+        for light in lights:
+            if hasattr(light, "direction") and not hasattr(light, "position"):
+                # Directional light
+                lights_scaled.append(("directional", light.direction,
+                    (light.color[0] * COLOR_SCALE, light.color[1] * COLOR_SCALE, light.color[2] * COLOR_SCALE),
+                    light.intensity))
+            else:
+                # Spotlight
+                lights_scaled.append(("spot", light,
+                    (light.color[0] * COLOR_SCALE, light.color[1] * COLOR_SCALE, light.color[2] * COLOR_SCALE),
+                    light.intensity))
+
 
         # Apply transformations and project vertices
         transformed_verts = self._transform_mesh_vertices(mesh)
@@ -192,70 +199,106 @@ class Renderer:
         return projected
 
     # --- Shading and Rasterization ---
-    def _calculate_flat_color(self, base_color: Tuple[int, int, int], normal: Vec3, lights: List, ambient_light: Tuple[float, float, float]) -> Tuple[int, int, int]:
-        """Calculates the final color for a triangle using flat shading."""
+    def _calculate_flat_color(
+        self,
+        base_color: Tuple[int, int, int],
+        normal: Vec3,
+        frag_pos: Vec3,
+        lights: List,
+        ambient_light: Tuple[float, float, float]
+    ) -> Tuple[int, int, int]:
+        """Flat shading: ambient + diffuse, supporting directional and spot lights."""
         br, bg, bb = base_color
         ar, ag, ab = ambient_light
         nx, ny, nz = normal.x, normal.y, normal.z
-        
-        # Start with ambient illumination.
+
+        # Start with ambient contribution
         total_r = br * ar
         total_g = bg * ag
         total_b = bb * ab
 
-        for light_dir, light_color, light_intensity in lights:
-            # Use the inverse light direction for the dot product.
-            light_x, light_y, light_z = -light_dir.x, -light_dir.y, -light_dir.z
-            
-            # The dot product determines the angle of the light.
-            intensity = nx * light_x + ny * light_y + nz * light_z
-            
-            # Use the absolute value of intensity to light both front and back faces.
-            scaled_intensity = max(0, intensity) * light_intensity
-            
-            lr, lg, lb = light_color
-            total_r += br * lr * scaled_intensity
-            total_g += bg * lg * scaled_intensity
-            total_b += bb * lb * scaled_intensity
-            
+        for ltype, ldata, lcolor, lintensity in lights:
+            if ltype == "directional":
+                light_dir = -ldata
+                intensity = max(nx * light_dir.x + ny * light_dir.y + nz * light_dir.z, 0.0) * lintensity
+                spot_factor = 1.0
+                dist_factor = 1.0
+            elif ltype == "spot":
+                spotlight = ldata
+                L = (spotlight.position - frag_pos).norm()
+                diff = max(normal.dot(L), 0.0)
+                spot_factor = spotlight.cone_factor(frag_pos)
+                dist_factor = spotlight.attenuation(frag_pos)
+                intensity = diff * lintensity * spot_factor * dist_factor
+            else:
+                continue
+
+            lr, lg, lb = lcolor
+            total_r += br * lr * intensity
+            total_g += bg * lg * intensity
+            total_b += bb * lb * intensity
+
         final_r = clamp(int(total_r), 0, 255)
         final_g = clamp(int(total_g), 0, 255)
         final_b = clamp(int(total_b), 0, 255)
-
         return final_r, final_g, final_b
     
-    def _calculate_phong_color(self, base_color, normal, view_dir, lights, ambient_light):
-        """Phong shading: ambient + diffuse + specular."""
+    def _calculate_phong_color(
+        self,
+        base_color: Tuple[int, int, int],
+        normal: Vec3,
+        view_dir: Vec3,
+        lights: List,
+        ambient_light: Tuple[float, float, float],
+        frag_pos: Vec3
+    ) -> Tuple[int, int, int]:
+        """Phong shading: ambient + diffuse + specular, supporting directional and spot lights."""
         br, bg, bb = base_color
         ar, ag, ab = ambient_light
+    
         # Phong parameters
         specular_strength = 0.5
         shininess = 32
 
+        # Start with ambient
         total_r = br * ar
         total_g = bg * ag
         total_b = bb * ab
 
-        for light_dir, light_color, light_intensity in lights:
+        for ltype, ldata, lcolor, lintensity in lights:
+            if ltype == "directional":
+                light_vec = -ldata.norm()
+                diff = max(normal.dot(light_vec), 0.0)
+                spot_factor = 1.0
+                dist_factor = 1.0
+            elif ltype == "spot":
+                spotlight = ldata
+                L = (spotlight.position - frag_pos).norm()
+                light_vec = L
+                diff = max(normal.dot(L), 0.0)
+                spot_factor = spotlight.cone_factor(frag_pos)
+                dist_factor = spotlight.attenuation(frag_pos)
+            else:
+                continue
+
+            lr, lg, lb = lcolor
             # Diffuse
-            light_vec = -light_dir.norm()
-            diff = max(normal.dot(light_vec), 0.0)
-            lr, lg, lb = light_color
-            total_r += br * lr * diff * light_intensity
-            total_g += bg * lg * diff * light_intensity
-            total_b += bb * lb * diff * light_intensity
+            total_r += br * lr * diff * lintensity * spot_factor * dist_factor
+            total_g += bg * lg * diff * lintensity * spot_factor * dist_factor
+            total_b += bb * lb * diff * lintensity * spot_factor * dist_factor
 
             # Specular
             reflect_dir = (normal * 2 * normal.dot(light_vec) - light_vec).norm()
             spec = max(view_dir.dot(reflect_dir), 0.0) ** shininess
-            total_r += 255 * lr * specular_strength * spec * light_intensity
-            total_g += 255 * lg * specular_strength * spec * light_intensity
-            total_b += 255 * lb * specular_strength * spec * light_intensity
+            total_r += 255 * lr * specular_strength * spec * lintensity * spot_factor * dist_factor
+            total_g += 255 * lg * specular_strength * spec * lintensity * spot_factor * dist_factor
+            total_b += 255 * lb * specular_strength * spec * lintensity * spot_factor * dist_factor
 
         final_r = clamp(int(total_r), 0, 255)
         final_g = clamp(int(total_g), 0, 255)
         final_b = clamp(int(total_b), 0, 255)
         return final_r, final_g, final_b
+
 
     def _draw_wireframe(self, mesh, projected_verts, color=(255,255,255)):
         """Draws triangle edges as lines (Bresenham) with depth check."""
@@ -347,18 +390,20 @@ class Renderer:
             is_front_face = cross_product_area > 0
 
             # Calculate the final color based on the visible side.
+            tri_center = (v0_world + v1_world + v2_world) * (1/3)
+
             if mesh.material == 'phong':
-                tri_center = (v0_world + v1_world + v2_world) * (1/3)
                 view_dir = (Vec3(0,0,0) - tri_center).norm()
                 if is_front_face:
-                    final_color = self._calculate_phong_color(avg_color, face_normal, view_dir, lights, ambient)
+                    final_color = self._calculate_phong_color(avg_color, face_normal, view_dir, lights, ambient, tri_center)
                 else:
-                    final_color = self._calculate_phong_color(avg_color, -face_normal, view_dir, lights, ambient)
-            else: # 'flat' shading
+                    final_color = self._calculate_phong_color(avg_color, -face_normal, view_dir, lights, ambient, tri_center)
+            else:  # 'flat' shading
                 if is_front_face:
-                    final_color = self._calculate_flat_color(avg_color, face_normal, lights, ambient)
+                    final_color = self._calculate_flat_color(avg_color, face_normal, tri_center, lights, ambient)
                 else:
-                    final_color = self._calculate_flat_color(avg_color, -face_normal, lights, ambient)
+                    final_color = self._calculate_flat_color(avg_color, -face_normal, tri_center, lights, ambient)
+
 
             # The alpha value is 1 for any pixel that gets rendered.
             rgba = (final_color[0], final_color[1], final_color[2], 1)

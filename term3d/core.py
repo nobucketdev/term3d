@@ -67,6 +67,37 @@ class Light:
         self.color = color
         self.intensity = intensity
 
+class SpotLight:
+    """Represents a spotlight (cone light) with position, direction, and cutoff angles."""
+    def __init__(self, position, direction, color, intensity=1.0, inner_angle=15.0, outer_angle=20.0):
+        self.position = position          # Vec3
+        self.direction = direction.norm() # Vec3
+        self.color = color                # (r,g,b)
+        self.intensity = intensity
+        self.inner_angle = math.radians(inner_angle)
+        self.outer_angle = math.radians(outer_angle)
+
+    def cone_factor(self, frag_pos):
+        """Return factor 0..1 depending on if frag_pos is inside the cone."""
+        L = (frag_pos - self.position).norm()
+        cos_theta = self.direction.dot(-L)
+
+        cos_inner = math.cos(self.inner_angle)
+        cos_outer = math.cos(self.outer_angle)
+
+        if cos_theta < cos_outer:
+            return 0.0
+        if cos_theta > cos_inner:
+            return 1.0
+        # Smooth falloff
+        return (cos_theta - cos_outer) / (cos_inner - cos_outer)
+
+    def attenuation(self, frag_pos):
+        """Simple distance-based falloff (inverse-square)."""
+        dist = (frag_pos - self.position).length()
+        # Avoid division by zero
+        return 1.0 / (1.0 + 0.1 * dist + 0.02 * (dist * dist))
+
 
 # Mesh and Scene classes
 class Mesh:
@@ -200,6 +231,10 @@ class term3d:
 
     def add_light(self, direction, color, intensity=1.0):
         self.lights.append(Light(direction, color, intensity))
+
+    def add_spotlight(self, position, direction, color, intensity=1.0, inner_angle=15.0, outer_angle=20.0):
+        self.lights.append(SpotLight(position, direction, color, intensity, inner_angle, outer_angle))
+
 
     def set_key_binding(self, key_code, action_function):
         self.key_bindings[key_code] = action_function
