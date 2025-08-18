@@ -31,9 +31,11 @@ class Renderer:
         
     def _is_mesh_visible(self, mesh, camera, view_proj_matrix) -> bool:
         """
-        Checks if the mesh's bounding box is within the camera's view frustum.
-        This is a simple form of frustum culling.
+        Checks if the mesh's bounding box is within the camera's view frustum,
+        with a margin to prevent early disappearance.
         """
+        MARGIN = 0.2  # Adjust this value as needed (larger = more room before disappearing)
+
         # Get the 8 corners of the bounding box
         corners = [
             Vec3(mesh.min_v.x, mesh.min_v.y, mesh.min_v.z),
@@ -45,19 +47,19 @@ class Renderer:
             Vec3(mesh.min_v.x, mesh.max_v.y, mesh.max_v.z),
             Vec3(mesh.max_v.x, mesh.max_v.y, mesh.max_v.z),
         ]
-        
-        # Transform the bounding box to world space
+    
+        # Transform bounding box to world space
         model_matrix = (Mat4.translate(mesh.pos.x, mesh.pos.y, mesh.pos.z) *
                         Mat4.rotate_y(mesh.rot.y) *
                         Mat4.rotate_x(mesh.rot.x) *
                         Mat4.rotate_z(mesh.rot.z) *
                         Mat4.scale(mesh.scale.x, mesh.scale.y, mesh.scale.z))
-                        
+                    
         world_corners = [model_matrix * c for c in corners]
-        
+    
         # Project world-space corners to clip space
         projected_corners = [view_proj_matrix * c for c in world_corners]
-        
+    
         min_x, min_y, min_z = float('inf'), float('inf'), float('inf')
         max_x, max_y, max_z = float('-inf'), float('-inf'), float('-inf')
 
@@ -69,14 +71,14 @@ class Renderer:
             max_y = max(max_y, v_proj.y)
             max_z = max(max_z, v_proj.z)
 
-        # Frustum culling checks:
-        # Check if the bounding box is completely outside the frustum on any axis.
-        if max_x < -1.0 or min_x > 1.0 or \
-           max_y < -1.0 or min_y > 1.0 or \
-           max_z < camera.znear or min_z > camera.zfar:
+        # Frustum culling with margin
+        if max_x < -1.0 - MARGIN or min_x > 1.0 + MARGIN or \
+           max_y < -1.0 - MARGIN or min_y > 1.0 + MARGIN or \
+           max_z < camera.znear - MARGIN or min_z > camera.zfar + MARGIN:
             return False
 
         return True
+
 
     # --- Buffer & Resolution Management ---
     def set_resolution_factor(self, factor: float):
