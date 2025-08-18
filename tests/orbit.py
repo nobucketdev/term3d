@@ -72,6 +72,18 @@ class OrbitScene:
 
         self.engine.set_clear_color(20,30,40) 
         self.engine.add_light(Vec3(0.5, 0.7, -1.0), (255, 255, 255), 1.0)
+        # Test out our new spotlight
+        # If you see the Cylinder and the Sphere being illuminated from the above 
+        # and the Donut don't (i'll just being illuminated from top left), it WORK!
+        self.engine.add_spotlight(
+            position=Vec3(0, -6, 0),        # 6 units above the scene
+            direction=Vec3(0, -1, 0),       # aiming straight down (–Y)
+            color=(255, 200, 150),          # warm orange/yellow light
+            intensity=5.0,                  # strong brightness
+            inner_angle=40,                 # wide bright inner cone
+            outer_angle=60                  # soft fade at edges
+        )
+
         self.engine.set_ambient_light(80,80,80) 
 
         self.orbit_angle_sphere = 0.0
