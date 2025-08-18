@@ -5,7 +5,6 @@ import os
 from term3d.core import term3d, Vec3
 from term3d.shpbuild import build_cube, build_uv_sphere, build_cylinder, build_torus
 from term3d.utils import set_mat
-
 try:
     cols, rows = os.get_terminal_size(0)
 except Exception:
@@ -13,18 +12,13 @@ except Exception:
         cols, rows = os.get_terminal_size(1)
     except Exception:
         cols, rows = (80, 30)
-
 WIDTH_CHARS = max(40, min(140, cols))
 HEIGHT_CHARS = max(12, min(60, rows - 2))
-
 print("Welcome to the orbit.py test of term3d engine")
 print(f"Terminal size: {WIDTH_CHARS}x{HEIGHT_CHARS}")
 print("This test shows a big wireframe cube in the middle of the scene")
 print("There is a flat shader(material) sphere and cylinder, and a Phong shader Donut orbiting around the cube")
 
-# The user prompt for quality has been removed.
-# A default quality value is now used directly.
-# Defaulting to 'Normal' quality, which is 3.
 q = 3 
 
 class OrbitScene:
@@ -171,4 +165,5 @@ class OrbitScene:
 if __name__ == '__main__':
     scene = OrbitScene()
     scene.run()
+
 
