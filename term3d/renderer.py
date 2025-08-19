@@ -2,6 +2,7 @@ from .mat4lib import Mat4
 from .vec3lib import Vec3
 from .utils import *
 from typing import List, Tuple
+from .objects import Light, SpotLight, PointLight
 
 # A constant for color normalization, making the code's intent clearer.
 COLOR_SCALE = 1.0 / 255.0
@@ -137,17 +138,21 @@ class Renderer:
                           
         lights_scaled = []
         for light in lights:
-            if hasattr(light, "direction") and not hasattr(light, "position"):
+            if isinstance(light, Light):
                 # Directional light
                 lights_scaled.append(("directional", light.direction,
                     (light.color[0] * COLOR_SCALE, light.color[1] * COLOR_SCALE, light.color[2] * COLOR_SCALE),
                     light.intensity))
-            else:
+            elif isinstance(light, SpotLight):
                 # Spotlight
                 lights_scaled.append(("spot", light,
                     (light.color[0] * COLOR_SCALE, light.color[1] * COLOR_SCALE, light.color[2] * COLOR_SCALE),
                     light.intensity))
-
+            elif isinstance(light, PointLight):
+                # Point light
+                lights_scaled.append(("point", light,
+                    (light.color[0] * COLOR_SCALE, light.color[1] * COLOR_SCALE, light.color[2] * COLOR_SCALE),
+                    light.intensity))
 
         # Apply transformations and project vertices
         transformed_verts = self._transform_mesh_vertices(mesh)
@@ -230,6 +235,13 @@ class Renderer:
                 spot_factor = spotlight.cone_factor(frag_pos)
                 dist_factor = spotlight.attenuation(frag_pos)
                 intensity = diff * lintensity * spot_factor * dist_factor
+            elif ltype == "point":
+                pointlight = ldata
+                light_vec = (pointlight.position - frag_pos).norm()
+                diff = max(normal.dot(light_vec), 0.0)
+                dist_factor = pointlight.attenuation(frag_pos)
+                intensity = diff * lintensity * dist_factor
+                spot_factor = 1.0 # Point lights have no cone factor
             else:
                 continue
 
@@ -278,6 +290,13 @@ class Renderer:
                 diff = max(normal.dot(L), 0.0)
                 spot_factor = spotlight.cone_factor(frag_pos)
                 dist_factor = spotlight.attenuation(frag_pos)
+            elif ltype == "point":
+                pointlight = ldata
+                light_vec = (pointlight.position - frag_pos).norm()
+                diff = max(normal.dot(light_vec), 0.0)
+                dist_factor = pointlight.attenuation(frag_pos)
+                intensity = diff * lintensity * dist_factor
+                spot_factor = 1.0 # Point lights have no cone factor
             else:
                 continue
 

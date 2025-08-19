@@ -28,6 +28,7 @@ from .vec3lib import Vec3
 from .renderer import Renderer
 from .__init__ import __version__
 from .utils import *
+from .objects import *
 
 print(f"Term3D by baod[nobucketdev] - Version {__version__}")
 
@@ -58,96 +59,6 @@ else:
             return sys.stdin.read(1)
         return None
 
-
-# New Light class to hold light properties
-class Light:
-    """Represents a directional light source with color and intensity."""
-    def __init__(self, direction, color, intensity):
-        self.direction = direction.norm()
-        self.color = color
-        self.intensity = intensity
-
-class SpotLight:
-    """Represents a spotlight (cone light) with position, direction, and cutoff angles."""
-    def __init__(self, position, direction, color, intensity=1.0, inner_angle=15.0, outer_angle=20.0):
-        self.position = position          # Vec3
-        self.direction = direction.norm() # Vec3
-        self.color = color                # (r,g,b)
-        self.intensity = intensity
-        self.inner_angle = math.radians(inner_angle)
-        self.outer_angle = math.radians(outer_angle)
-
-    def cone_factor(self, frag_pos):
-        """Return factor 0..1 depending on if frag_pos is inside the cone."""
-        L = (frag_pos - self.position).norm()
-        cos_theta = self.direction.dot(-L)
-
-        cos_inner = math.cos(self.inner_angle)
-        cos_outer = math.cos(self.outer_angle)
-
-        if cos_theta < cos_outer:
-            return 0.0
-        if cos_theta > cos_inner:
-            return 1.0
-        # Smooth falloff
-        return (cos_theta - cos_outer) / (cos_inner - cos_outer)
-
-    def attenuation(self, frag_pos):
-        """Simple distance-based falloff (inverse-square)."""
-        dist = (frag_pos - self.position).length()
-        # Avoid division by zero
-        return 1.0 / (1.0 + 0.1 * dist + 0.02 * (dist * dist))
-
-
-# Mesh and Scene classes
-class Mesh:
-    def __init__(self, verts, faces, colors, material='flat'):
-        self.verts = verts
-        self.faces = faces
-        self.vcols = colors
-        self.material = material  # 'flat', 'phong', 'wireframe'
-        self.pos = Vec3(0, 0, 0)
-        self.rot = Vec3(0, 0, 0)
-        self.scale = Vec3(1, 1, 1)
-
-    def move(self, x=0, y=0, z=0):
-        self.pos.x += x
-        self.pos.y += y
-        self.pos.z += z
-
-    def rotate(self, x=0, y=0, z=0):
-        self.rot.x += x
-        self.rot.y += y
-        self.rot.z += z
-        
-    def calculate_bounds(self):
-        """Calculates the axis-aligned bounding box (AABB) for the mesh."""
-        if not self.verts:
-            return
-
-        min_x = min(v.x for v in self.verts)
-        min_y = min(v.y for v in self.verts)
-        min_z = min(v.z for v in self.verts)
-
-        max_x = max(v.x for v in self.verts)
-        max_y = max(v.y for v in self.verts)
-        max_z = max(v.z for v in self.verts)
-
-        self.min_v = Vec3(min_x, min_y, min_z)
-        self.max_v = Vec3(max_x, max_y, max_z)
-        
-
-class Camera:
-    """
-    Represents the camera, handling projection settings, position, and rotation.
-    """
-    def __init__(self, fov=60.0, znear=0.1, zfar=100.0, zoom=3.0):
-        self.fov = fov
-        self.znear = znear
-        self.zfar = zfar
-        self.zoom = zoom
-        self.pos = Vec3(0, 0, 0)
-        self.rot = Vec3(0, 0, 0) # Pitch, Yaw, Roll
 
 class term3d:
     """
@@ -235,7 +146,9 @@ class term3d:
     def add_spotlight(self, position, direction, color, intensity=1.0, inner_angle=15.0, outer_angle=20.0):
         self.lights.append(SpotLight(position, direction, color, intensity, inner_angle, outer_angle))
 
-
+    def add_pointlight(self, position, color, intensity=1.0):
+        self.lights.append(PointLight(position, color, intensity))
+        
     def set_key_binding(self, key_code, action_function):
         self.key_bindings[key_code] = action_function
 
@@ -421,11 +334,35 @@ class term3d:
             if self.lights:
                 lights_info += "\nLights:\n"
                 for i, light in enumerate(self.lights):
-                    dir_str = f"({light.direction.x:.1f}, {light.direction.y:.1f}, {light.direction.z:.1f})"
-                    col_str = f"RGB({light.color[0]}, {light.color[1]}, {light.color[2]})"
-                    lights_info += f" {i}:\n  Direction: {dir_str}\n  Color: {col_str}\n  Intensity: {light.intensity:.1f}\n"
+                    light_type = "Unknown"
+                    props = []
+                    
+                    # Check the type of the light and get its properties
+                    if isinstance(light, Light):
+                        light_type = "Directional"
+                        props.append(f"Direction: ({light.direction.x:.1f}, {light.direction.y:.1f}, {light.direction.z:.1f})")
+                        props.append(f"Color: RGB({light.color[0]}, {light.color[1]}, {light.color[2]})")
+                        props.append(f"Intensity: {light.intensity:.1f}")
+                    elif isinstance(light, SpotLight):
+                        light_type = "Spotlight"
+                        props.append(f"Position: ({light.position.x:.1f}, {light.position.y:.1f}, {light.position.z:.1f})")
+                        props.append(f"Direction: ({light.direction.x:.1f}, {light.direction.y:.1f}, {light.direction.z:.1f})")
+                        props.append(f"Color: RGB({light.color[0]}, {light.color[1]}, {light.color[2]})")
+                        props.append(f"Intensity: {light.intensity:.1f}")
+                        props.append(f"Inner Angle: {math.degrees(light.inner_angle):.1f}°")
+                        props.append(f"Outer Angle: {math.degrees(light.outer_angle):.1f}°")
+                    elif isinstance(light, PointLight):
+                        light_type = "Point"
+                        props.append(f"Position: ({light.position.x:.1f}, {light.position.y:.1f}, {light.position.z:.1f})")
+                        props.append(f"Color: RGB({light.color[0]}, {light.color[1]}, {light.color[2]})")
+                        props.append(f"Intensity: {light.intensity:.1f}")
+
+                    # Format the output string
+                    props_str = "\n  ".join(props)
+                    lights_info += f" {i}: {light_type}\n  {props_str}\n"
             else:
                 lights_info = "No lights in scene."
+
 
             status = (
                 f"\nFPS: {self.fps:.1f} | Quality: {self.quality}\n"
