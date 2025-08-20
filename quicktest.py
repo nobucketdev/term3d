@@ -19,7 +19,7 @@ print(f"Terminal size: {WIDTH_CHARS}x{HEIGHT_CHARS}")
 print("This test shows a big wireframe cube in the middle of the scene")
 print("There is a flat shader(material) sphere and cylinder, and a Phong shader Donut orbiting around the cube")
 
-q = 3 
+q = 5
 
 class OrbitScene:
     def __init__(self):
@@ -54,13 +54,7 @@ class OrbitScene:
 
         self.engine.set_clear_color(20,30,40) 
         self.engine.add_light(Vec3(0.5, 0.7, -1.0), (255, 255, 255), 0.4)       # Make it low for now
-
-        # Add a point light, focus on the circle orbiting, if it become dark near siting between the cube and camera and lit(color toward orange) siting opposite the camera, the PointLight work!
-        point_light_pos = Vec3(0, 0, 0)   # I add a point light in center for testing
-        point_light_color = (255, 210, 150)
-        point_light_intensity = 1.0
-        new_point_light = PointLight(point_light_pos, point_light_color, point_light_intensity)
-        self.engine.lights.append(new_point_light)
+        self.engine.add_pointlight(Vec3(0.0, -3.5, 0.0), (255,255,255), intensity=3.0)
 
         self.engine.set_ambient_light(60,60,60)    
 
@@ -173,5 +167,3 @@ class OrbitScene:
 if __name__ == '__main__':
     scene = OrbitScene()
     scene.run()
-
-
