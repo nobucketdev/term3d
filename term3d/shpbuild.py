@@ -225,7 +225,7 @@ def build_torus(R=2.0, r=0.7, segments_R=40, segments_r=20, color=None):
             faces.append((i1, i2, i3))
     return Mesh(verts, faces, vcols)
 
-def build_plane(width=1.0, depth=1.0, segments_x=1, segments_z=1, color=None):
+def build_plane(width=1.0, depth=1.0, segments_x=10, segments_z=10, color=None):
     """Generates a flat grid plane along XZ axis. Accepts an optional custom color."""
     verts, faces, vcols = [], [], []
     for z in range(segments_z + 1):
