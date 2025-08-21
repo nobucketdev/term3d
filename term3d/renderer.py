@@ -2,7 +2,7 @@ from .mat4lib import Mat4
 from .vec3lib import Vec3
 from .utils import *
 from typing import List, Tuple
-from .objects import Light, SpotLight, PointLight
+from .objects import DirectionalLight, SpotLight, PointLight
 
 # A constant for color normalization, making the code's intent clearer.
 COLOR_SCALE = 1.0 / 255.0
@@ -138,7 +138,7 @@ class Renderer:
                           
         lights_scaled = []
         for light in lights:
-            if isinstance(light, Light):
+            if isinstance(light, DirectionalLight):
                 # Directional light
                 lights_scaled.append(("directional", light.direction,
                     (light.color[0] * COLOR_SCALE, light.color[1] * COLOR_SCALE, light.color[2] * COLOR_SCALE),

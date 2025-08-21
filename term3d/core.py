@@ -141,7 +141,7 @@ class term3d:
         self.last_terminal_size = os.get_terminal_size()
 
     def add_light(self, direction, color, intensity=1.0):
-        self.lights.append(Light(direction, color, intensity))
+        self.lights.append(DirectionalLight(direction, color, intensity))
 
     def add_spotlight(self, position, direction, color, intensity=1.0, inner_angle=15.0, outer_angle=20.0):
         self.lights.append(SpotLight(position, direction, color, intensity, inner_angle, outer_angle))
@@ -338,7 +338,7 @@ class term3d:
                     props = []
                     
                     # Check the type of the light and get its properties
-                    if isinstance(light, Light):
+                    if isinstance(light, DirectionalLight):
                         light_type = "Directional"
                         props.append(f"Direction: ({light.direction.x:.1f}, {light.direction.y:.1f}, {light.direction.z:.1f})")
                         props.append(f"Color: RGB({light.color[0]}, {light.color[1]}, {light.color[2]})")

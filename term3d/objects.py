@@ -1,6 +1,6 @@
 import math
 from .vec3lib import Vec3
-class Light:
+class DirectionalLight:
     """Represents a directional light source with color and intensity."""
     def __init__(self, direction, color, intensity):
         self.direction = direction.norm()
