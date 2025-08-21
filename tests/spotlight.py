@@ -33,7 +33,7 @@ def main():
 
     # Add a subtle ambient light to illuminate the dark areas
     engine.set_ambient_light(60, 60, 70)
-   # --- Object Creation ---
+    # --- Object Creation ---
     # Create a single UV sphere and position it in the center
     central_sphere = build_uv_sphere(radius=1.5, segments_x=32, segments_y=16, color=(200, 100, 100))
     engine.add_mesh(central_sphere)
