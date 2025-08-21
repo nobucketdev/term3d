@@ -30,7 +30,7 @@ class Renderer:
         # Set initial resolution, which also initializes the buffers.
         self.set_resolution_factor(1.0)
         
-    def _is_mesh_visible(self, mesh, camera, view_proj_matrix) -> bool:
+    def _is_mesh_visible(self, mesh, camera, view_proj_matrix, model_matrix=None) -> bool:
         """
         Checks if the mesh's bounding box is within the camera's view frustum,
         with a margin to prevent early disappearance.
@@ -50,11 +50,12 @@ class Renderer:
         ]
     
         # Transform bounding box to world space
-        model_matrix = (Mat4.translate(mesh.pos.x, mesh.pos.y, mesh.pos.z) *
-                        Mat4.rotate_y(mesh.rot.y) *
-                        Mat4.rotate_x(mesh.rot.x) *
-                        Mat4.rotate_z(mesh.rot.z) *
-                        Mat4.scale(mesh.scale.x, mesh.scale.y, mesh.scale.z))
+        model_matrix = (model_matrix if model_matrix is not None else
+                        (Mat4.translate(mesh.pos.x, mesh.pos.y, mesh.pos.z) *
+                         Mat4.rotate_y(mesh.rot.y) *
+                         Mat4.rotate_x(mesh.rot.x) *
+                         Mat4.rotate_z(mesh.rot.z) *
+                         Mat4.scale(mesh.scale.x, mesh.scale.y, mesh.scale.z)))
                     
         world_corners = [model_matrix * c for c in corners]
     
@@ -112,7 +113,7 @@ class Renderer:
         self.depth_buffer[:] = [float('inf')] * num_pixels
 
     # --- Frame Rendering Pipeline ---
-    def render_mesh(self, mesh, camera, lights):
+    def render_mesh(self, mesh, camera, lights, model_matrix=None):
         """
         Performs the full rendering pipeline for a single mesh,
         including transformations, projection, and rasterization.
@@ -128,7 +129,7 @@ class Renderer:
         view_proj_matrix = proj_matrix * view_matrix
         
         # Frustum culling check: skip rendering if the bounding box is not visible.
-        if not self._is_mesh_visible(mesh, camera, view_proj_matrix):
+        if not self._is_mesh_visible(mesh, camera, view_proj_matrix, model_matrix=model_matrix):
             return
 
         # Pre-calculate scaled light values for efficiency.
@@ -155,21 +156,22 @@ class Renderer:
                     light.intensity))
 
         # Apply transformations and project vertices
-        transformed_verts = self._transform_mesh_vertices(mesh)
+        transformed_verts = self._transform_mesh_vertices(mesh, model_matrix=model_matrix)
         projected_verts = self._project_vertices(transformed_verts, camera)
         
         # Rasterize and shade the triangles.
         self._rasterize_triangles(mesh, transformed_verts, projected_verts, lights_scaled, ambient_scaled)
 
-    def _transform_mesh_vertices(self, mesh) -> List[Vec3]:
+    def _transform_mesh_vertices(self, mesh, model_matrix=None) -> List[Vec3]:
         """Applies model transformations (scale, rotate, translate) to a mesh's vertices."""
         # It's more efficient to chain multiplications from right to left,
         # so the final matrix applies scale, then rotation, then translation.
-        model_matrix = (Mat4.translate(mesh.pos.x, mesh.pos.y, mesh.pos.z) *
-                        Mat4.rotate_y(mesh.rot.y) *
-                        Mat4.rotate_x(mesh.rot.x) *
-                        Mat4.rotate_z(mesh.rot.z) *
-                        Mat4.scale(mesh.scale.x, mesh.scale.y, mesh.scale.z))
+        model_matrix = (model_matrix if model_matrix is not None else
+                        (Mat4.translate(mesh.pos.x, mesh.pos.y, mesh.pos.z) *
+                         Mat4.rotate_y(mesh.rot.y) *
+                         Mat4.rotate_x(mesh.rot.x) *
+                         Mat4.rotate_z(mesh.rot.z) *
+                         Mat4.scale(mesh.scale.x, mesh.scale.y, mesh.scale.z)))
 
         return [model_matrix * v for v in mesh.verts]
 

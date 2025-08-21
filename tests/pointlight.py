@@ -4,9 +4,8 @@ This script demonstrates a scene with a simulated point light and two spheres
 using the term3d engine.
 """
 
-from term3d.core import term3d
+from term3d.core import term3d, Vec3
 from term3d.shpbuild import build_uv_sphere, build_plane
-from term3d.vec3lib import Vec3
 
 def main():
     """
@@ -18,7 +17,12 @@ def main():
     engine.set_render_quality(5)
 
     # --- Light Setup ---
-    engine.add_pointlight(Vec3(0.0, -3.5, 0.0), (255,255,255), intensity=3.0)
+    # Create the point light as a node
+    light_node = engine.add_pointlight(
+        position=Vec3(0.0, -3.5, 0.0),
+        color=(255, 255, 255),
+        intensity=3.0
+    )
 
     # Add a subtle ambient light to illuminate the dark areas
     engine.set_ambient_light(60, 60, 70)
@@ -26,18 +30,19 @@ def main():
     # --- Object Creation ---
     # Create the first UV sphere and position it to the left
     sphere_left = build_uv_sphere(radius=1.0, segments_x=32, segments_y=16, color=(200, 100, 100))
+    # Add the sphere as a node and set its position
     engine.add_mesh(sphere_left)
     engine.set_mesh_position(sphere_left, -2.5, 0, 0)
 
-
     # Create the second UV sphere and position it to the right
     sphere_right = build_uv_sphere(radius=1.0, segments_x=32, segments_y=16, color=(100, 100, 200))
+    # Add the sphere as a node and set its position
     engine.add_mesh(sphere_right)
     engine.set_mesh_position(sphere_right, 2.5, 0, 0)
 
-    plane_mesh = build_plane(width=20, depth=20, segments_x=30, segments_z=30, color=(200,200,200))
+    plane_mesh = build_plane(width=20, depth=20, segments_x=30, segments_z=30, color=(200, 200, 200))
+    # Add the plane mesh as a node
     engine.add_mesh(plane_mesh)
-
 
     # --- Camera and Controls ---
     # Set the initial camera position and field of view
