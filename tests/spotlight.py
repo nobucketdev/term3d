@@ -7,7 +7,6 @@ on a single sphere using the term3d engine.
 from term3d.core import term3d
 from term3d.shpbuild import build_uv_sphere, build_plane
 from term3d.vec3lib import Vec3
-from term3d.utils import set_mat
 
 def main():
     """

@@ -4,7 +4,7 @@ This script demonstrates a scene with a simulated point light and two spheres
 using the term3d engine.
 """
 
-from term3d.core import term3d, Light
+from term3d.core import term3d
 from term3d.shpbuild import build_uv_sphere, build_plane
 from term3d.vec3lib import Vec3
 

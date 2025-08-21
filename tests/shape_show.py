@@ -1,5 +1,4 @@
 import sys
-import time
 from term3d.core import term3d, Vec3
 from term3d.shpbuild import(
     build_cube, build_uv_sphere, build_torus, build_plane,
