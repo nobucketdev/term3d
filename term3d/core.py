@@ -1,24 +1,3 @@
-#!/usr/bin/env python3
-"""
-This is a 3D rendering engine for the terminal.
-It is designed to be used as a library, with a simple API for building
-and rendering scenes from an external file.
-
-Features:
- - Unicode half-block rendering (▀) to pack 2 vertical pixels per character
- - Truecolor ANSI foreground/background for smooth color
- - Mesh rendering with triangle rasterization and z-buffer
- - Multiple directional lights with color and intensity (Lambert)
- - Keyboard controls (cross-platform)
- - Per-object rotation toggle via the API
- - FPS display, adjustable resolution
- - Improved SSAA blending with clear color at object edges
-
-The main term3d class acts as the user's entry point,
-exposing a simple API to set up the scene and run the loop.
-
-"""
-
 from __future__ import annotations
 from typing import List, Optional, Callable
 from .vec3lib import Vec3
@@ -66,18 +45,23 @@ else:
 
 
 class Transform:
-    def __init__(self, pos: Optional[Vec3]=None, rot: Optional[Vec3]=None, scale: Optional[Vec3]=None):
+    def __init__(self, pos: Optional[Vec3]=None, rot: Optional[Vec3]=None, scale: Optional[Vec3]=None, pivot: Optional[Vec3]=None):
         self.pos = pos if pos is not None else Vec3(0,0,0)
         self.rot = rot if rot is not None else Vec3(0,0,0)  # pitch, yaw, roll
         self.scale = scale if scale is not None else Vec3(1,1,1)
+        # NEW: The point around which rotation and scaling occurs.
+        self.pivot = pivot if pivot is not None else Vec3(0,0,0)
 
     def to_matrix(self) -> Mat4:
-        # Scale -> RotZ -> RotX -> RotY -> Translate (same order used by Renderer)
+        # T_pos * T_pivot * R_rot * S_scale * T_neg_pivot
+        # This order applies transformations around the pivot point.
         return (Mat4.translate(self.pos.x, self.pos.y, self.pos.z) *
+                Mat4.translate(self.pivot.x, self.pivot.y, self.pivot.z) *
                 Mat4.rotate_y(self.rot.y) *
                 Mat4.rotate_x(self.rot.x) *
                 Mat4.rotate_z(self.rot.z) *
-                Mat4.scale(self.scale.x, self.scale.y, self.scale.z))
+                Mat4.scale(self.scale.x, self.scale.y, self.scale.z) *
+                Mat4.translate(-self.pivot.x, -self.pivot.y, -self.pivot.z))
 
 class SceneNode:
     def __init__(self, name: str = "node"):
@@ -141,6 +125,11 @@ class SceneNode:
 
     def set_scale(self, x=1.0, y=1.0, z=1.0):
         self.transform.scale = Vec3(x,y,z)
+        return self
+
+    def set_pivot(self, x=0.0, y=0.0, z=0.0):
+        """Set the pivot point for rotation and scaling."""
+        self.transform.pivot = Vec3(x,y,z)
         return self
 
 class term3d:
@@ -220,6 +209,7 @@ class term3d:
         self.tar_fps = 30
         self.show_status_text = True
         self.title_text = ""
+        self._update_function = None
 
         self.key_bindings = {}
         self.set_render_quality(self.quality)
@@ -236,6 +226,10 @@ class term3d:
         
     def set_key_binding(self, key_code, action_function):
         self.key_bindings[key_code] = action_function
+
+    def set_on_update(self, update_function: Callable[[float], None]):
+        """Sets a function to be called on every frame update with the delta time (dt)."""
+        self._update_function = update_function
 
     def set_render_quality(self, quality_level):
         quality_map = {
@@ -369,6 +363,9 @@ class term3d:
 
     def set_node_scale(self, node: SceneNode, x, y, z):
         node.set_scale(x,y,z)
+    
+    def set_node_pivot(self, node: SceneNode, x, y, z):
+        node.set_pivot(x,y,z)
         
     def get_node_position(self, name: str) -> Optional[Vec3]:
         node = self.get_node(name)
@@ -590,6 +587,8 @@ Scene:   {num_meshes} meshes, {total_verts} verts, {total_tris} tris
         sys.stdout.flush()
 
     def _update(self, dt):
+        if self._update_function:
+            self._update_function(dt)
         for mesh in self.meshes:
             mesh.rot.x = math.fmod(mesh.rot.x, 2 * math.pi)
             mesh.rot.y = math.fmod(mesh.rot.y, 2 * math.pi)
