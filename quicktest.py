@@ -4,6 +4,7 @@ from term3d.core import term3d, Vec3
 from term3d.shpbuild import build_cube, build_uv_sphere, build_cylinder, build_torus
 from term3d.utils import set_mat
 from term3d.objects import DirectionalLight, PointLight
+import shutil
 
 try:
     cols, rows = os.get_terminal_size(0)
@@ -25,11 +26,9 @@ class OrbitScene:
     def __init__(self):
         self.engine = term3d(WIDTH_CHARS, HEIGHT_CHARS)
         self.frame_count = 0
-        try:
-            current_cols, current_rows = os.get_terminal_size()
-            self.last_terminal_size = (current_cols, current_rows - 2)
-        except Exception:
-            self.last_terminal_size = (80, 24)
+        
+        size = shutil.get_terminal_size(fallback=(80, 24))
+        self.last_terminal_size = (size.columns, size.lines - 2)
 
         # --- Scene graph nodes ---
         # The cube is the central parent node
