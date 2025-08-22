@@ -1,0 +1,66 @@
+name: Quick Test Bot
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run quicktest.py
+        run: python3 quicktest.py
+
+      - name: Temporarily move test files
+        run: |
+          if [ -d "tests" ]; then
+            mv tests/* .
+          fi
+
+      - name: Run each test file
+        id: run_tests
+        run: |
+          echo "" > test_results.txt
+          error_found=0
+          for file in *.py; do
+            if [ "$file" != "quicktest.py" ]; then
+              echo "Running $file..."
+              if ! python3 "$file" >> test_results.txt 2>&1; then
+                echo "Error in $file" >> test_results.txt
+                error_found=1
+              fi
+            fi
+          done
+          echo "error_found=$error_found" >> $GITHUB_ENV
+
+      - name: Move files back (cleanup)
+        run: |
+          if [ -d "tests" ]; then
+            mkdir -p tests
+            git mv $(ls *.py | grep -v quicktest.py) tests/ || true
+          fi
+
+      - name: Post comment if errors
+        if: env.error_found == '1'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const results = fs.readFileSync('test_results.txt', 'utf8');
+            const issue_number = context.payload.pull_request.number;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body: `❌ Some tests failed:\n\n\`\`\`\n${results}\n\`\`\``
+            });
