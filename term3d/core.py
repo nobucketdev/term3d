@@ -574,14 +574,15 @@ class term3d:
                 lights_info = "No lights in scene."
 
 
-            status = (
-                f"\nFPS: {self.fps:.1f} | Quality: {self.quality}\n"
-                f"Cam Pos: ({self.camera.pos.x:.2f}, {self.camera.pos.y:.2f}, {self.camera.pos.z:.2f})\n"
-                f"Cam Rot: ({self.camera.rot.x:.2f}, {self.camera.rot.y:.2f}, {self.camera.rot.z:.2f})\n"
-                f"Zoom: {self.camera.zoom:.2f} | FOV: {self.camera.fov:.1f}°\n"
-                f"Scene: {num_meshes} meshes, {total_verts} verts, {total_tris} tris\n"
-                f"{lights_info}"
-            )
+            status = f"""
+FPS:     {self.fps:<6.1f}    Quality: {self.quality}
+Cam Pos: ({self.camera.pos.x:>6.2f}, {self.camera.pos.y:>6.2f}, {self.camera.pos.z:>6.2f})
+Cam Rot: ({self.camera.rot.x:>6.2f}, {self.camera.rot.y:>6.2f}, {self.camera.rot.z:>6.2f})
+Zoom:    {self.camera.zoom:<6.2f}    FOV: {self.camera.fov:.1f}°
+Scene:   {num_meshes} meshes, {total_verts} verts, {total_tris} tris
+{lights_info}
+            """
+
             
             # Position the cursor at the top-left and overwrite with the new status text
             sys.stdout.write(CSI + 'H' + status)
