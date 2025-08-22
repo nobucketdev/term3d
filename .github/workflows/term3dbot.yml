@@ -85,9 +85,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Pass the `needs` context as a JSON string to the script
           script: |
-            const { needs } = github.context;
-            const jobResults = needs.run-tests;
+            const needs = JSON.parse(`${{ toJson(needs) }}`);
+            const jobResults = needs['run-tests'];
 
             let successCount = 0;
             const totalCount = Object.keys(jobResults).length;
