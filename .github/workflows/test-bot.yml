@@ -7,6 +7,7 @@ on:
 jobs:
   run-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # Safety limit for whole job
 
     steps:
       - name: Checkout code
@@ -17,37 +18,48 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Run quicktest.py
-        run: python3 quicktest.py
-
       - name: Temporarily move test files
         run: |
           if [ -d "tests" ]; then
             mv tests/* .
           fi
 
-      - name: Run each test file
+      - name: Run all tests with timeout & clean output
         id: run_tests
         run: |
           echo "" > test_results.txt
           error_found=0
           for file in *.py; do
-            if [ "$file" != "quicktest.py" ]; then
-              echo "Running $file..."
-              if ! python3 "$file" >> test_results.txt 2>&1; then
-                echo "Error in $file" >> test_results.txt
-                error_found=1
+            echo "Running $file..."
+            # Run each test with 10s timeout
+            if ! timeout 10s python3 "$file" >> raw_output.txt 2>&1; then
+              if [ $? -eq 124 ]; then
+                echo "Timeout in $file" >> raw_output.txt
+              else
+                echo "Error in $file" >> raw_output.txt
               fi
+              error_found=1
             fi
           done
+          # Strip ANSI codes and control chars
+          sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' raw_output.txt > test_results.txt
           echo "error_found=$error_found" >> $GITHUB_ENV
 
       - name: Move files back (cleanup)
         run: |
           if [ -d "tests" ]; then
             mkdir -p tests
-            git mv $(ls *.py | grep -v quicktest.py) tests/ || true
+            for file in *.py; do
+              mv "$file" tests/
+            done
           fi
+
+      - name: Upload full logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-test-logs
+          path: raw_output.txt
 
       - name: Post comment if errors
         if: env.error_found == '1'
@@ -56,11 +68,15 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const results = fs.readFileSync('test_results.txt', 'utf8');
+            let results = fs.readFileSync('test_results.txt', 'utf8');
+            // Truncate to avoid exceeding 64KB
+            if (results.length > 5000) {
+              results = results.substring(0, 5000) + "\n... (output truncated)";
+            }
             const issue_number = context.payload.pull_request.number;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number,
-              body: `❌ Some tests failed:\n\n\`\`\`\n${results}\n\`\`\``
+              body: `❌ Some tests failed or timed out:\n\n\`\`\`\n${results}\n\`\`\`\nFull logs attached as artifact.`
             });
