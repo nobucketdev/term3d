@@ -70,14 +70,27 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
             const issue_number = context.payload.pull_request.number;
-            const success = process.env.error_found === '0';
-            const message = success
-              ? '✅ All tests passed!'
-              : '❌ Some tests failed. Check the "full-test-logs" artifact for details.';
+            const logs = fs.readFileSync('raw_output.txt', 'utf8');
+
+            let summary = '✅ Test Results:\n';
+            logs.split('\n').forEach(line => {
+              if (line.startsWith('[OK]')) {
+                const file = line.replace('[OK] ', '');
+                summary += `${file}: OK\n`;
+              } else if (line.startsWith('[ERROR]')) {
+                const file = line.replace('[ERROR] ', '');
+                summary += `${file}: Failed\n`;
+              } else if (line.startsWith('[TIMEOUT]')) {
+                const file = line.replace('[TIMEOUT] ', '');
+                summary += `${file}: Timeout\n`;
+              }
+            });
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number,
-              body: message
+              body: summary
             });
