@@ -13,6 +13,8 @@ from .utils import *
 from .objects import *
 from typing import List, Optional, Callable
 import fnmatch
+import shutil
+
 
 print(f"Term3D by baod[nobucketdev] - Version {__version__}")
 
@@ -181,7 +183,7 @@ class term3d:
 
         self.key_bindings = {}
         self.set_render_quality(self.quality)
-        self.last_terminal_size = os.get_terminal_size()
+        self.last_terminal_size = shutil.get_terminal_size(fallback=(80, 24))
 
     # --- Scene Graph API ---
     def create_node(self, name: str='node', parent: SceneNode=None, tags: Optional[List[str]]=None) -> SceneNode:
