@@ -1,87 +1,42 @@
-name: Lint & Format
+name: Lint Check
 
 on:
   pull_request:
+    branches: [ main ]
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
-  # -------------------------
-  # Lint Check Job (reviewdog)
-  # -------------------------
   lint:
-    name: Lint Check (black + isort)
     runs-on: ubuntu-latest
-
     steps:
+      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install tools
-        run: pip install black isort reviewdog
-
-      - name: Run black check
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Install dependencies
+      - name: Install linters
         run: |
-          black --check . \
-            | reviewdog -f=diff \
-              -name="black" \
-              -reporter=github-pr-review \
-              -fail-on-error=false
+          pip install black isort
 
-      - name: Run isort check
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          isort --check-only --diff . \
-            | reviewdog -f=diff \
-              -name="isort" \
-              -reporter=github-pr-review \
-              -fail-on-error=false
-
-  # -------------------------
-  # Autofix Job (optional)
-  # -------------------------
-  autofix:
-    name: Auto Format (black + isort)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    permissions:
-      contents: write  # needed for pushing fixes
-      pull-requests: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # Install reviewdog (not pip!)
+      - name: Setup reviewdog
+        uses: reviewdog/action-setup@v1
         with:
-          ref: ${{ github.head_ref }}
+          reviewdog_version: latest
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install tools
-        run: pip install black isort
-
-      - name: Run formatters
+      # Run Black (check only, no changes)
+      - name: Run Black
         run: |
-          black .
-          isort .
+          black --check --diff . | reviewdog -f=diff -name=black -reporter=github-pr-review -fail-on-error=true
 
-      - name: Commit and push changes
+      # Run isort (check only)
+      - name: Run isort
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          if ! git diff --cached --quiet; then
-            git commit -m "style: auto-format code with black + isort"
-            git push
-          fi
+          isort --check-only --diff . | reviewdog -f=diff -name=isort -reporter=github-pr-review -fail-on-error=true
