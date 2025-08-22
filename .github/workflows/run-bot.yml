@@ -71,3 +71,10 @@ jobs:
         with:
           name: full-test-logs-${{ matrix.os }}-${{ matrix.version }}
           path: raw_output.txt
+
+      - name: Add success label
+        if: success()
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: "bot: successfully ran"
