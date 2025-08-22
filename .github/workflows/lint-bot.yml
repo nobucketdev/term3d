@@ -44,7 +44,7 @@ jobs:
         with:
           message: "✅ Formatted"
 
-      - name: Add label to PR
+      - name: Add green label to PR
         if: github.event_name == 'pull_request'
         uses: actions-ecosystem/action-add-labels@v1
         with:
