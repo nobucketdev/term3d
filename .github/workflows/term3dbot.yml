@@ -11,8 +11,15 @@ permissions:
 
 jobs:
   run-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10  # Safety limit for the whole job
+    # Use a strategy matrix to run the job on multiple operating systems.
+    strategy:
+      fail-fast: false # Ensure all jobs complete even if one fails
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    # The job will run on the OS specified in the matrix.
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -23,14 +30,27 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Temporarily move test files
+      # Note: On Windows, the "Temporarily move test files" and "Move files back" steps
+      # need to use different commands. This is handled by a condition on the step.
+      - name: Temporarily move test files (Linux/macOS)
+        if: startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'macos')
         run: |
           if [ -d "tests" ]; then
             mv tests/* .
           fi
 
+      - name: Temporarily move test files (Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: pwsh # Use PowerShell for Windows commands
+        run: |
+          if (Test-Path -Path "tests" -PathType Container) {
+            Move-Item -Path "tests\*" -Destination "."
+          }
+
       - name: Run all tests with timeout
         id: run_tests
+        # On Windows, use `cmd.exe` as the shell for the `timeout` command.
+        shell: ${{ startsWith(matrix.os, 'windows') && 'cmd' || 'bash' }}
         run: |
           echo "" > raw_output.txt
           error_found=0
@@ -50,6 +70,7 @@ jobs:
           echo "error_found=$error_found" >> $GITHUB_ENV
 
       - name: Move files back (cleanup)
+        if: always() && (startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'macos'))
         run: |
           if [ -d "tests" ]; then
             mkdir -p tests
@@ -57,15 +78,27 @@ jobs:
               mv "$file" tests/
             done
           fi
+      
+      - name: Move files back (cleanup - Windows)
+        if: always() && startsWith(matrix.os, 'windows')
+        shell: pwsh
+        run: |
+          if (Test-Path -Path "tests" -PathType Container) {
+            Get-ChildItem -Path *.py | ForEach-Object {
+              Move-Item -Path $_.FullName -Destination "tests\"
+            }
+          }
 
       - name: Upload full logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: full-test-logs
+          name: full-test-logs-${{ matrix.os }} # Name artifact uniquely for each OS
           path: raw_output.txt
 
       - name: Post comment result
+        # Only post the comment from one job to avoid duplicate comments.
+        if: always() && matrix.os == 'ubuntu-latest'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -73,8 +106,8 @@ jobs:
             const fs = require('fs');
             const issue_number = context.payload.pull_request.number;
             const logs = fs.readFileSync('raw_output.txt', 'utf8');
-
             let summary = '### ✅ Test Results:\n';
+
             logs.split('\n').forEach(line => {
               if (line.startsWith('[OK]')) {
                 const file = line.replace('[OK] ', '');
