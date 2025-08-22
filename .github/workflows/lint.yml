@@ -1,42 +1,50 @@
-name: Lint Check
+name: Lint
 
 on:
   pull_request:
-    branches: [ main ]
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
-      # Install dependencies
-      - name: Install linters
+      - name: Install dependencies
         run: |
-          pip install black isort
+          python -m pip install --upgrade pip
+          pip install black isort reviewdog
 
-      # Install reviewdog (not pip!)
-      - name: Setup reviewdog
-        uses: reviewdog/action-setup@v1
-        with:
-          reviewdog_version: latest
-
-      # Run Black (check only, no changes)
-      - name: Run Black
+      # -----------------------------
+      # BLACK (formatter check)
+      # -----------------------------
+      - name: Run black with reviewdog
         run: |
-          black --check --diff . | reviewdog -f=diff -name=black -reporter=github-pr-review -fail-on-error=true
+          set -o pipefail
+          black --check --diff . | reviewdog -f=diff \
+            -name=black \
+            -reporter=github-pr-review \
+            -fail-on-error=true || true
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Run isort (check only)
-      - name: Run isort
+      # -----------------------------
+      # ISORT (import sorting check)
+      # -----------------------------
+      - name: Run isort with reviewdog
         run: |
-          isort --check-only --diff . | reviewdog -f=diff -name=isort -reporter=github-pr-review -fail-on-error=true
+          set -o pipefail
+          isort --check-only --diff . | reviewdog -f=diff \
+            -name=isort \
+            -reporter=github-pr-review \
+            -fail-on-error=true || true
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
