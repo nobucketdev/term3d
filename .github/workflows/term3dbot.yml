@@ -42,7 +42,7 @@ jobs:
           error_found=0
           for file in *.py; do
             echo "Running $file..."
-            if ! timeout 10s python3 "$file" >> raw_output.txt 2>&1; then
+            if ! timeout 2s python3 "$file" >> raw_output.txt 2>&1; then
               if [ $? -eq 124 ]; then
                 echo "[TIMEOUT] $file" >> raw_output.txt
               else
