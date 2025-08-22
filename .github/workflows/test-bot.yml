@@ -24,25 +24,24 @@ jobs:
             mv tests/* .
           fi
 
-      - name: Run all tests with timeout & clean output
+      - name: Run all tests with timeout
         id: run_tests
         run: |
-          echo "" > test_results.txt
+          echo "" > raw_output.txt
           error_found=0
           for file in *.py; do
             echo "Running $file..."
-            # Run each test with 10s timeout
             if ! timeout 10s python3 "$file" >> raw_output.txt 2>&1; then
               if [ $? -eq 124 ]; then
-                echo "Timeout in $file" >> raw_output.txt
+                echo "[TIMEOUT] $file" >> raw_output.txt
               else
-                echo "Error in $file" >> raw_output.txt
+                echo "[ERROR] $file" >> raw_output.txt
               fi
               error_found=1
+            else
+              echo "[OK] $file" >> raw_output.txt
             fi
           done
-          # Strip ANSI codes and control chars
-          sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' raw_output.txt > test_results.txt
           echo "error_found=$error_found" >> $GITHUB_ENV
 
       - name: Move files back (cleanup)
@@ -61,22 +60,19 @@ jobs:
           name: full-test-logs
           path: raw_output.txt
 
-      - name: Post comment if errors
-        if: env.error_found == '1'
+      - name: Post comment result
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require('fs');
-            let results = fs.readFileSync('test_results.txt', 'utf8');
-            // Truncate to avoid exceeding 64KB
-            if (results.length > 5000) {
-              results = results.substring(0, 5000) + "\n... (output truncated)";
-            }
             const issue_number = context.payload.pull_request.number;
+            const success = process.env.error_found === '0';
+            const message = success
+              ? '✅ All tests passed!'
+              : '❌ Some tests failed. Check the "full-test-logs" artifact for details.';
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number,
-              body: `❌ Some tests failed or timed out:\n\n\`\`\`\n${results}\n\`\`\`\nFull logs attached as artifact.`
+              body: message
             });
