@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-import math, os
-from term3d.core import term3d, Vec3
-from term3d.shpbuild import build_cube, build_uv_sphere, build_cylinder, build_torus
-from term3d.utils import set_mat
-from term3d.objects import DirectionalLight, PointLight
+import os
 import shutil
+
+from term3d.core import Vec3, term3d
+from term3d.objects import DirectionalLight
+from term3d.shpbuild import (build_cube, build_cylinder, build_torus,
+                             build_uv_sphere)
+from term3d.utils import set_mat
 
 try:
     cols, rows = os.get_terminal_size(0)
@@ -22,22 +24,31 @@ print(f"Terminal size: {WIDTH_CHARS}x{HEIGHT_CHARS}")
 
 q = 5
 
+
 class OrbitScene:
     def __init__(self):
         self.engine = term3d(WIDTH_CHARS, HEIGHT_CHARS)
         self.frame_count = 0
-        
+
         size = shutil.get_terminal_size(fallback=(80, 24))
         self.last_terminal_size = (size.columns, size.lines - 2)
 
         # --- Scene graph nodes ---
         # The cube is the central parent node
-        self.node_cube   = self.engine.add_mesh_node(build_cube(size=2.5), "cube")
-        
+        self.node_cube = self.engine.add_mesh_node(build_cube(size=2.5), "cube")
+
         # The orbiting shapes are all children of the cube
-        self.node_sphere = self.engine.add_mesh_node(build_uv_sphere(radius=0.5), "sphere", parent=self.node_cube)
-        self.node_cyl    = self.engine.add_mesh_node(build_cylinder(radius=0.4, height=1.5), "cylinder", parent=self.node_cube)
-        self.node_torus  = self.engine.add_mesh_node(build_torus(R=1.0, r=0.5, segments_R=30, segments_r=10), "torus", parent=self.node_cube)
+        self.node_sphere = self.engine.add_mesh_node(
+            build_uv_sphere(radius=0.5), "sphere", parent=self.node_cube
+        )
+        self.node_cyl = self.engine.add_mesh_node(
+            build_cylinder(radius=0.4, height=1.5), "cylinder", parent=self.node_cube
+        )
+        self.node_torus = self.engine.add_mesh_node(
+            build_torus(R=1.0, r=0.5, segments_R=30, segments_r=10),
+            "torus",
+            parent=self.node_cube,
+        )
 
         # Set the initial positions of the children relative to their parents
         self.node_sphere.set_pos(5.0, 0, 0)
@@ -45,19 +56,18 @@ class OrbitScene:
         self.node_torus.set_pos(0, 2, 8.0)
 
         # Materials
-        set_mat(self.node_cube.mesh, 'wireframe')
-        set_mat(self.node_torus.mesh, 'phong')
+        set_mat(self.node_cube.mesh, "wireframe")
+        set_mat(self.node_torus.mesh, "phong")
 
         # Camera & lighting
         self.engine.reset_camera(stepback=-15)
         self.engine.set_render_quality(q)
         self.engine.set_clear_color(20, 30, 40)
         self.engine.add_light_node(
-            DirectionalLight(Vec3(0.5, 0.7, -1.0), (255,255,255), 0.4),
-            "sun"
+            DirectionalLight(Vec3(0.5, 0.7, -1.0), (255, 255, 255), 0.4), "sun"
         )
-        self.engine.add_pointlight(Vec3(0.0, -3.5, 0.0), (255,255,255), intensity=3.0)
-        self.engine.set_ambient_light(60,60,60)
+        self.engine.add_pointlight(Vec3(0.0, -3.5, 0.0), (255, 255, 255), intensity=3.0)
+        self.engine.set_ambient_light(60, 60, 60)
 
         # Orbit state
         self.orbit_angle_parent = 0.0
@@ -72,9 +82,9 @@ class OrbitScene:
         self.node_cube.transform.rot.y += 0.8 * dt
 
         self.node_sphere.transform.rot.y += 0.6 * dt
-        self.node_cyl.transform.rot.z    += 1.8 * dt
-        self.node_torus.transform.rot.x  += 1.2 * dt
-        self.node_torus.transform.rot.y  += 0.7 * dt
+        self.node_cyl.transform.rot.z += 1.8 * dt
+        self.node_torus.transform.rot.x += 1.2 * dt
+        self.node_torus.transform.rot.y += 0.7 * dt
 
         # All orbiting children are driven by the parent cube's rotation
         self.orbit_angle_parent += 0.5 * dt
@@ -96,22 +106,23 @@ class OrbitScene:
 
     def _bind_camera_keys(self):
         # same as before
-        self.engine.set_key_binding('w', lambda: self.engine.move_camera(z=0.5))
-        self.engine.set_key_binding('s', lambda: self.engine.move_camera(z=-0.5))
-        self.engine.set_key_binding('a', lambda: self.engine.move_camera(x=-0.5))
-        self.engine.set_key_binding('d', lambda: self.engine.move_camera(x=0.5))
-        self.engine.set_key_binding('q', lambda: self.engine.move_camera(y=0.5))
-        self.engine.set_key_binding('e', lambda: self.engine.move_camera(y=-0.5))
-        self.engine.set_key_binding('r', lambda: self.engine.reset_camera(stepback=-10))
-        self.engine.set_key_binding('i', lambda: self.engine.rotate_camera(x=-0.1))
-        self.engine.set_key_binding('k', lambda: self.engine.rotate_camera(x=0.1))
-        self.engine.set_key_binding('j', lambda: self.engine.rotate_camera(y=0.1))
-        self.engine.set_key_binding('l', lambda: self.engine.rotate_camera(y=-0.1))
-        self.engine.set_key_binding('+', lambda: self.engine.zoom_camera(0.25))
-        self.engine.set_key_binding('-', lambda: self.engine.zoom_camera(-0.25))
+        self.engine.set_key_binding("w", lambda: self.engine.move_camera(z=0.5))
+        self.engine.set_key_binding("s", lambda: self.engine.move_camera(z=-0.5))
+        self.engine.set_key_binding("a", lambda: self.engine.move_camera(x=-0.5))
+        self.engine.set_key_binding("d", lambda: self.engine.move_camera(x=0.5))
+        self.engine.set_key_binding("q", lambda: self.engine.move_camera(y=0.5))
+        self.engine.set_key_binding("e", lambda: self.engine.move_camera(y=-0.5))
+        self.engine.set_key_binding("r", lambda: self.engine.reset_camera(stepback=-10))
+        self.engine.set_key_binding("i", lambda: self.engine.rotate_camera(x=-0.1))
+        self.engine.set_key_binding("k", lambda: self.engine.rotate_camera(x=0.1))
+        self.engine.set_key_binding("j", lambda: self.engine.rotate_camera(y=0.1))
+        self.engine.set_key_binding("l", lambda: self.engine.rotate_camera(y=-0.1))
+        self.engine.set_key_binding("+", lambda: self.engine.zoom_camera(0.25))
+        self.engine.set_key_binding("-", lambda: self.engine.zoom_camera(-0.25))
 
     def run(self):
         self.engine.run()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     OrbitScene().run()

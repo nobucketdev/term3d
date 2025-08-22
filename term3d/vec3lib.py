@@ -1,9 +1,10 @@
 import math
 
+
 class Vec3:
     """3D vector with full vector algebra support, optimized for pure Python."""
 
-    __slots__ = ('x', 'y', 'z')
+    __slots__ = ("x", "y", "z")
     EPS = 1e-9
 
     def __init__(self, x=0.0, y=0.0, z=0.0):
@@ -13,11 +14,13 @@ class Vec3:
 
     # --- Arithmetic operators ---
     def __add__(self, o):
-        if not isinstance(o, Vec3): return NotImplemented
+        if not isinstance(o, Vec3):
+            return NotImplemented
         return Vec3(self.x + o.x, self.y + o.y, self.z + o.z)
 
     def __sub__(self, o):
-        if not isinstance(o, Vec3): return NotImplemented
+        if not isinstance(o, Vec3):
+            return NotImplemented
         return Vec3(self.x - o.x, self.y - o.y, self.z - o.z)
 
     def __mul__(self, s):
@@ -46,7 +49,8 @@ class Vec3:
         return Vec3(-self.x, -self.y, -self.z)
 
     def __eq__(self, o):
-        if not isinstance(o, Vec3): return False
+        if not isinstance(o, Vec3):
+            return False
         tol = 1e-9
         dx = self.x - o.x
         dy = self.y - o.y
@@ -72,7 +76,7 @@ class Vec3:
     # --- Magnitude & normalization ---
     def length_sq(self):
         x, y, z = self.x, self.y, self.z
-        return x*x + y*y + z*z
+        return x * x + y * y + z * z
 
     def length(self):
         return math.sqrt(self.length_sq()) or self.EPS
@@ -89,7 +93,7 @@ class Vec3:
         dx = self.x - o.x
         dy = self.y - o.y
         dz = self.z - o.z
-        return math.sqrt(dx*dx + dy*dy + dz*dz) or self.EPS
+        return math.sqrt(dx * dx + dy * dy + dz * dz) or self.EPS
 
     def angle_with(self, o):
         lx = self.length()
@@ -113,9 +117,7 @@ class Vec3:
 
     def reflect(self, normal):
         d = 2 * self.dot(normal)
-        return Vec3(self.x - normal.x * d,
-                    self.y - normal.y * d,
-                    self.z - normal.z * d)
+        return Vec3(self.x - normal.x * d, self.y - normal.y * d, self.z - normal.z * d)
 
     # --- Triple products ---
     def scalar_triple(self, b, c):
@@ -124,18 +126,14 @@ class Vec3:
     def vector_triple(self, b, c):
         db = self.dot(b)
         dc = self.dot(c)
-        return Vec3(
-            b.x * dc - c.x * db,
-            b.y * dc - c.y * db,
-            b.z * dc - c.z * db
-        )
+        return Vec3(b.x * dc - c.x * db, b.y * dc - c.y * db, b.z * dc - c.z * db)
 
     # --- Interpolation ---
     def lerp(self, o, t):
         return Vec3(
             self.x + (o.x - self.x) * t,
             self.y + (o.y - self.y) * t,
-            self.z + (o.z - self.z) * t
+            self.z + (o.z - self.z) * t,
         )
 
     # --- Conversion ---

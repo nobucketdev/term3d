@@ -1,5 +1,7 @@
 import math
+
 from .vec3lib import Vec3
+
 
 class Mat4:
     """
@@ -7,6 +9,7 @@ class Mat4:
     The matrix is stored in column-major order, which is common in graphics APIs
     like OpenGL and is efficient for vector-matrix multiplication.
     """
+
     def __init__(self):
         # Using a flat list for a 4x4 matrix, totaling 16 elements.
         # Initialized to an identity matrix for convenience.
@@ -92,10 +95,12 @@ class Mat4:
             c = res.m
             for i in range(4):  # Rows of resulting matrix
                 for j in range(4):  # Columns of resulting matrix
-                    c[j * 4 + i] = (a[i] * b[j * 4] +
-                                    a[i + 4] * b[j * 4 + 1] +
-                                    a[i + 8] * b[j * 4 + 2] +
-                                    a[i + 12] * b[j * 4 + 3])
+                    c[j * 4 + i] = (
+                        a[i] * b[j * 4]
+                        + a[i + 4] * b[j * 4 + 1]
+                        + a[i + 8] * b[j * 4 + 2]
+                        + a[i + 12] * b[j * 4 + 3]
+                    )
             return res
         elif isinstance(other, Vec3):
             # Optimized matrix-vector multiplication (assuming column-major)
@@ -107,7 +112,7 @@ class Mat4:
             vy = x * self.m[1] + y * self.m[5] + z * self.m[9] + w * self.m[13]
             vz = x * self.m[2] + y * self.m[6] + z * self.m[10] + w * self.m[14]
             vw = x * self.m[3] + y * self.m[7] + z * self.m[11] + w * self.m[15]
-            
+
             if vw != 0.0:
                 return Vec3(vx / vw, vy / vw, vz / vw)
             return Vec3(vx, vy, vz)
