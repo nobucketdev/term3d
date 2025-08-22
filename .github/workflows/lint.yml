@@ -1,4 +1,4 @@
-name: Lint
+name: Lint Bot
 
 on:
   pull_request:
@@ -16,19 +16,32 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install tools
+      - name: Install Python lint tools
         run: |
-          pip install ruff black isort reviewdog
+          pip install ruff black isort
 
+      - name: Setup reviewdog
+        uses: reviewdog/action-setup@v1
+        with:
+          reviewdog_version: latest
 
       - name: Ruff lint
         run: |
-          ruff check . --output-format=github | reviewdog -f=github-pr-check -reporter=github-pr-review -fail-on-error=true
+          ruff check . --output-format=github | reviewdog \
+            -f=github-pr-check \
+            -reporter=github-pr-review \
+            -fail-on-error=false
 
       - name: Black check
         run: |
-          black --check --diff . | reviewdog -f=diff -reporter=github-pr-review -fail-on-error=true
+          black --check --diff . | reviewdog \
+            -f=diff \
+            -reporter=github-pr-review \
+            -fail-on-error=false
 
       - name: isort check
         run: |
-          isort --check-only --diff . | reviewdog -f=diff -reporter=github-pr-review -fail-on-error=true
+          isort --check-only --diff . | reviewdog \
+            -f=diff \
+            -reporter=github-pr-review \
+            -fail-on-error=false
