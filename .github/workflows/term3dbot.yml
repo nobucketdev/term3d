@@ -70,38 +70,3 @@ jobs:
         with:
           name: full-test-logs-${{ matrix.os }}
           path: raw_output.txt
-
-  # New job to post a summary after all matrix jobs are complete
-  post-summary:
-    needs: run-tests
-    runs-on: ubuntu-latest
-    
-    if: always()
-    
-    steps:
-      - name: Post summary of successful jobs
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const needs = JSON.parse(`${{ toJson(needs) }}`);
-            const jobResults = needs['run-tests'];
-            let allPassed = true;
-
-            for (const job in jobResults) {
-              if (jobResults[job].result !== 'success') {
-                allPassed = false;
-                break;
-              }
-            }
-
-            const timestamp = new Date().toLocaleString();
-            const result = allPassed ? 'Success' : 'Failed';
-            const summary = `${timestamp}: ${result}`;
-            
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body: summary
-            });
