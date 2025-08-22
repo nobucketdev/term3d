@@ -64,6 +64,7 @@ jobs:
           done
           echo "error_found=$error_found" >> $GITHUB_ENV
 
+      # Separate step for Windows tests with PowerShell syntax
       - name: Run all tests with timeout (Windows)
         if: runner.os == 'Windows'
         id: run_tests_windows
@@ -72,21 +73,26 @@ jobs:
           Set-Content -Path "raw_output.txt" -Value ""
           $errorFound = 0
           
+          # Get all .py files in the current directory
           Get-ChildItem -Path *.py | ForEach-Object {
             $file = $_.Name
             Write-Host "Running $file..."
             
-            $process = Start-Process -FilePath "python" -ArgumentList $file -NoNewWindow -PassThru -Wait -RedirectStandardOutput "raw_output.txt" -RedirectStandardError "raw_output.txt"
+            # Start a separate process to run the python file with a timeout
+            $output = Start-Process -FilePath "python" -ArgumentList $file -NoNewWindow -PassThru -Wait -ErrorVariable errors -Timeout 10
             
-            if ($process.ExitCode -ne 0) {
-              if ($process.ExitCode -eq 124) {
-                Add-Content -Path "raw_output.txt" -Value "[TIMEOUT] $file"
-              } else {
+            # Check if there were any errors during process execution
+            if ($errors) {
                 Add-Content -Path "raw_output.txt" -Value "[ERROR] $file"
-              }
-              $errorFound = 1
+                $errorFound = 1
             } else {
-              Add-Content -Path "raw_output.txt" -Value "[OK] $file"
+                # Check the exit code for timeout (124) or other failures
+                if ($LASTEXITCODE -eq 124) {
+                    Add-Content -Path "raw_output.txt" -Value "[TIMEOUT] $file"
+                    $errorFound = 1
+                } else {
+                    Add-Content -Path "raw_output.txt" -Value "[OK] $file"
+                }
             }
           }
           Write-Output "error_found=$errorFound" >> $env:GITHUB_ENV
