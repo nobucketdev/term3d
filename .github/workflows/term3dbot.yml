@@ -74,17 +74,17 @@ jobs:
             const issue_number = context.payload.pull_request.number;
             const logs = fs.readFileSync('raw_output.txt', 'utf8');
 
-            let summary = '✅ Test Results:\n';
+            let summary = '### ✅ Test Results:\n';
             logs.split('\n').forEach(line => {
               if (line.startsWith('[OK]')) {
                 const file = line.replace('[OK] ', '');
-                summary += `${file}: OK\n`;
+                summary += `✅ ${file}\n`;
               } else if (line.startsWith('[ERROR]')) {
                 const file = line.replace('[ERROR] ', '');
-                summary += `${file}: Failed\n`;
+                summary += `❌ ${file}\n`;
               } else if (line.startsWith('[TIMEOUT]')) {
                 const file = line.replace('[TIMEOUT] ', '');
-                summary += `${file}: Timeout\n`;
+                summary += `⏳ ${file}\n`;
               }
             });
 
