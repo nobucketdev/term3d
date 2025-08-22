@@ -73,11 +73,9 @@ jobs:
 
   # New job to post a summary after all matrix jobs are complete
   post-summary:
-    # This job needs the `run-tests` job to finish before it starts
     needs: run-tests
     runs-on: ubuntu-latest
     
-    # Always run this job, even if a matrix job fails
     if: always()
     
     steps:
@@ -85,22 +83,21 @@ jobs:
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Pass the `needs` context as a JSON string to the script
           script: |
             const needs = JSON.parse(`${{ toJson(needs) }}`);
             const jobResults = needs['run-tests'];
-
-            let successCount = 0;
-            const totalCount = Object.keys(jobResults).length;
+            let allPassed = true;
 
             for (const job in jobResults) {
-              if (jobResults[job].result === 'success') {
-                successCount++;
+              if (jobResults[job].result !== 'success') {
+                allPassed = false;
+                break;
               }
             }
 
             const timestamp = new Date().toLocaleString();
-            const summary = `${timestamp}: Success ${successCount}/${totalCount}`;
+            const result = allPassed ? 'Success' : 'Failed';
+            const summary = `${timestamp}: ${result}`;
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,
