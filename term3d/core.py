@@ -507,12 +507,16 @@ class term3d:
         """Disables the display of the FPS and camera status text."""
         self.show_status_text = enable
 
-
     def run(self):
         try:
-            if os.name != 'nt':
+            # Check if sys.stdin is a tty before attempting to get terminal settings
+            if os.name != 'nt' and sys.stdin.isatty():
                 self.old_settings = termios.tcgetattr(sys.stdin)
                 tty.setcbreak(sys.stdin.fileno())
+                self.has_tty = True
+            else:
+                self.has_tty = False
+
             sys.stdout.write(HIDE_CURSOR)
             sys.stdout.write(CLEAR_SCREEN)
             sys.stdout.write(SET_TITLE.format(title=self.title_text))
@@ -540,7 +544,8 @@ class term3d:
             sys.stdout.write('\n')
             sys.stdout.write(SET_TITLE.format(title="")) # Clear title on exit
             sys.stdout.flush()
-            if os.name != 'nt':
+            # Only restore settings if they were successfully saved
+            if os.name != 'nt' and self.has_tty:
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
 
     def _render_scene(self):
