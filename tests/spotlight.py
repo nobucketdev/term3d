@@ -4,9 +4,8 @@ This script demonstrates a scene with a simulated spotlight shining down
 on a single sphere using the term3d engine.
 """
 
-from term3d.core import term3d
+from term3d.core import term3d, Vec3, SpotLight
 from term3d.shpbuild import build_uv_sphere, build_plane
-from term3d.vec3lib import Vec3
 
 def main():
     """
@@ -22,30 +21,32 @@ def main():
     # The 'position' is where the light source is.
     # The 'direction' is the vector the light is pointing in.
     # The inner and outer angles control the cone of the spotlight.
-    engine.add_spotlight(
-            position=Vec3(0, -6, 0),        # 6 units above the scene
-            direction=Vec3(0, -1, 0),       # aiming straight down (–Y)
-            color=(255, 200, 150),          # warm orange/yellow light
-            intensity=5.0,                  # strong brightness
-            inner_angle=40,                 # wide bright inner cone
-            outer_angle=60                  # soft fade at edges
-        )
+    light = SpotLight(
+        position=Vec3(0, -6, 0),        # 6 units above the scene
+        direction=Vec3(0, -1, 0),       # aiming straight down (-Y)
+        color=(255, 200, 150),          # warm orange/yellow light
+        intensity=5.0,                  # strong brightness
+        inner_angle=40,                 # wide bright inner cone
+        outer_angle=60                  # soft fade at edges
+    )
+    engine.add_light_node(light) # Use add_light_node
 
     # Add a subtle ambient light to illuminate the dark areas
     engine.set_ambient_light(60, 60, 70)
     # --- Object Creation ---
     # Create a single UV sphere and position it in the center
-    central_sphere = build_uv_sphere(radius=1.5, segments_x=32, segments_y=16, color=(200, 100, 100))
-    engine.add_mesh(central_sphere)
-    engine.set_mesh_position(central_sphere, 0, -1.5, 0)
-    
+    central_sphere_mesh = build_uv_sphere(radius=1.5, segments_x=32, segments_y=16, color=(200, 100, 100))
+    # Add the sphere to the scene and set its position
+    sphere_node = engine.add_mesh_node(central_sphere_mesh) # Use add_mesh_node
+    engine.set_node_position(sphere_node, 0, -1.5, 0) # Set position on the node
+
     # --- Create the plane using the build_plane helper function ---
-    plane_mesh = build_plane(width=20, depth=20, segments_x=25, segments_z=25, color=(200,200,200))
-    engine.add_mesh(plane_mesh)
+    plane_mesh = build_plane(width=20, depth=20, segments_x=25, segments_z=25, color=(200, 200, 200))
+    # Add the plane mesh to the scene
+    plane_node = engine.add_mesh_node(plane_mesh) # Use add_mesh_node
 
-    # Register the sphere for automatic rotation, but not the plane
-    engine.register_for_rotation(central_sphere)
-
+    # Register the sphere for automatic rotation
+    engine.register_for_rotation(sphere_node) # Register the node, not the mesh
 
     # --- Camera and Controls ---
     # Set the initial camera position and field of view
@@ -60,7 +61,7 @@ def main():
     engine.set_key_binding('d', lambda: engine.rotate_camera(y=0.1))
     engine.set_key_binding('q', lambda: engine.rotate_camera(x=0.1))
     engine.set_key_binding('e', lambda: engine.rotate_camera(x=-0.1))
-    
+
     # Run the main engine loop
     engine.run()
 

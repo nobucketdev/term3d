@@ -1,5 +1,5 @@
 import sys
-from term3d.core import term3d, Vec3
+from term3d.core import term3d, Vec3, SceneNode, DirectionalLight
 from term3d.shpbuild import(
     build_cube, build_uv_sphere, build_torus, build_plane,
     build_cylinder, build_cone, build_pyramid, build_icosphere,
@@ -19,8 +19,7 @@ while True:
         print("Please type a number from 0-7.")
     except ValueError:
         print("Please type a number from 0-7.")
-        
-        
+
 print("\nChoose a color scheme for the shapes:")
 print("1: Rainbow (default colors)")
 print("2: Custom RGB color")
@@ -50,7 +49,7 @@ while True:
         print("Please type a number from 0-2")
     except ValueError:
         print("Please type a number from 0-2")
-        
+
 if m == 0:
     material = "flat"
 elif m == 1:
@@ -61,10 +60,9 @@ elif m == 2:
 def main():
     width, height = 80, 40
     engine = term3d(width, height)
-    
-    # Add the new icosphere function to the list of shapes
-    # --- NEW: Pass the selected_color to each shape builder function ---
-    shapes = [
+
+    # List of tuples: (shape name, shape mesh)
+    shape_meshes = [
         ("Cube", build_cube(color=selected_color)),
         ("Sphere", build_uv_sphere(color=selected_color)),
         ("Icosphere", build_icosphere(color=selected_color)),
@@ -81,72 +79,73 @@ def main():
         ("Catenoid", build_catenoid(color=selected_color)),
         ("Capsule", build_capsule(color=selected_color)),
     ]
+
+    # Create a list of SceneNodes, each with a mesh
+    shapes_nodes = [engine.add_mesh_node(mesh, name) for name, mesh in shape_meshes]
+
     index = 0
-    
-    current_mesh = shapes[index][1]
-    engine.add_mesh(current_mesh)
-    engine.register_for_rotation(current_mesh)
-    set_mat(current_mesh, material)  # Set the initial mesh to phong material
-    
+    current_node = shapes_nodes[index]
+    engine.register_for_rotation(current_node) # Register the node, not the mesh
+    set_mat(current_node.mesh, material)
+
     rotation_step = 0.1
     zoom = -5
     min_zoom = -10
     max_zoom = -2
+    auto_rotate = True
 
-    auto_rotate = True  # Start auto-rotating
-    
-    # The key is to toggle auto_rotate off whenever a manual rotation is performed
     def rotate_x_pos():
         nonlocal auto_rotate
-        auto_rotate = False  # Disable auto-rotate
-        current_mesh.rot.x += rotation_step
+        auto_rotate = False
+        current_node.set_rot(current_node.transform.rot.x + rotation_step, current_node.transform.rot.y, current_node.transform.rot.z)
 
     def rotate_x_neg():
         nonlocal auto_rotate
-        auto_rotate = False  # Disable auto-rotate
-        current_mesh.rot.x -= rotation_step
+        auto_rotate = False
+        current_node.set_rot(current_node.transform.rot.x - rotation_step, current_node.transform.rot.y, current_node.transform.rot.z)
 
     def rotate_y_pos():
         nonlocal auto_rotate
-        auto_rotate = False  # Disable auto-rotate
-        current_mesh.rot.y += rotation_step
+        auto_rotate = False
+        current_node.set_rot(current_node.transform.rot.x, current_node.transform.rot.y + rotation_step, current_node.transform.rot.z)
 
     def rotate_y_neg():
         nonlocal auto_rotate
-        auto_rotate = False  # Disable auto-rotate
-        current_mesh.rot.y -= rotation_step
+        auto_rotate = False
+        current_node.set_rot(current_node.transform.rot.x, current_node.transform.rot.y - rotation_step, current_node.transform.rot.z)
 
     def rotate_z_pos():
         nonlocal auto_rotate
-        auto_rotate = False  # Disable auto-rotate
-        current_mesh.rot.z += rotation_step
+        auto_rotate = False
+        current_node.set_rot(current_node.transform.rot.x, current_node.transform.rot.y, current_node.transform.rot.z + rotation_step)
 
     def rotate_z_neg():
         nonlocal auto_rotate
-        auto_rotate = False  # Disable auto-rotate
-        current_mesh.rot.z -= rotation_step
+        auto_rotate = False
+        current_node.set_rot(current_node.transform.rot.x, current_node.transform.rot.y, current_node.transform.rot.z - rotation_step)
 
     def next_shape():
-        nonlocal index, current_mesh, auto_rotate
+        nonlocal index, current_node, auto_rotate
         auto_rotate = False
-        engine.rotating_meshes.clear()
-        engine.meshes.clear()
-        index = (index + 1) % len(shapes)
-        current_mesh = shapes[index][1]
-        engine.add_mesh(current_mesh)
-        engine.register_for_rotation(current_mesh)
-        set_mat(current_mesh, material)
+        engine.rotating_nodes.clear() # Clear the rotating nodes
+        engine.remove_node(current_node) # Use the new remove_node
+        index = (index + 1) % len(shapes_nodes)
+        current_node = shapes_nodes[index]
+        engine.root.add(current_node)
+        engine.register_for_rotation(current_node) # Register the node
+        set_mat(current_node.mesh, material)
 
     def prev_shape():
-        nonlocal index, current_mesh, auto_rotate
+        nonlocal index, current_node, auto_rotate
         auto_rotate = False
-        engine.rotating_meshes.clear()
-        engine.meshes.clear()
-        index = (index - 1) % len(shapes)
-        current_mesh = shapes[index][1]
-        engine.add_mesh(current_mesh)
-        engine.register_for_rotation(current_mesh)
-        set_mat(current_mesh, material)
+        engine.rotating_nodes.clear() # Clear the rotating nodes
+        engine.remove_node(current_node) # Use the new remove_node
+        index = (index - 1) % len(shapes_nodes)
+        current_node = shapes_nodes[index]
+        engine.root.add(current_node)
+        engine.register_for_rotation(current_node) # Register the node
+        set_mat(current_node.mesh, material)
+
     def zoom_in():
         nonlocal zoom, auto_rotate
         auto_rotate = False
@@ -161,8 +160,7 @@ def main():
 
     def quit_app():
         engine.running = False
-    
-    # NEW FUNCTION: Toggles the auto_rotate state
+
     def toggle_auto_rotate():
         nonlocal auto_rotate
         auto_rotate = not auto_rotate
@@ -178,31 +176,30 @@ def main():
     engine.set_key_binding('l', next_shape)
     engine.set_key_binding('z', zoom_in)
     engine.set_key_binding('x', zoom_out)
-    engine.set_key_binding('\x1b', quit_app)  # ESC
-    engine.set_key_binding('\x03', quit_app)  # Ctrl+C
-    engine.set_key_binding('r', engine.reset_camera(stepback=-4))
+    engine.set_key_binding('\x1b', quit_app)
+    engine.set_key_binding('\x03', quit_app)
     engine.set_key_binding('r', toggle_auto_rotate)
 
     engine.set_camera_position(0, 0, zoom)
     engine.set_camera_rotation(0, 0, 0)
-    engine.set_ambient_light(150, 150, 150) # Setting a balanced ambient light
-    engine.add_light(Vec3(1, 1, 1), (255, 255, 255), 0.8) # Add a directional light
+    engine.set_ambient_light(150, 150, 150)
+    # Use the new API to add a directional light
+    engine.add_light_node(DirectionalLight(Vec3(1, 1, 1), (255, 255, 255), 0.8))
     engine.set_render_quality(q)
 
     original_draw_frame = engine._draw_frame
     def draw_frame_with_name():
         nonlocal auto_rotate
         if auto_rotate:
-            current_mesh.rot.y += 0.022
-            current_mesh.rot.z += 0.028
-            current_mesh.rot.x += 0.025
+            current_node.transform.rot.y += 0.022
+            current_node.transform.rot.z += 0.028
+            current_node.transform.rot.x += 0.025
 
         original_draw_frame()
-        rot = current_mesh.rot
-        
-        # UPDATE: Add the auto-rotate status to the output
+        rot = current_node.transform.rot
+
         status = "On" if auto_rotate else "Off"
-        sys.stdout.write(f"\x1b[{height+1};1HShape: {shapes[index][0]} | Rot: X={rot.x:.2f} Y={rot.y:.2f} Z={rot.z:.2f} Zoom: {-zoom:.1f} \nQWEASD rotate, R toggle auto-rotate, J/L switch shape, Z/X zoom, ESC quit")
+        sys.stdout.write(f"\x1b[{height+1};1HShape: {current_node.name} | Rot: X={rot.x:.2f} Y={rot.y:.2f} Z={rot.z:.2f} Zoom: {-zoom:.1f} \nQWEASD rotate, R toggle auto-rotate, J/L switch shape, Z/X zoom, ESC quit")
         sys.stdout.flush()
     engine._draw_frame = draw_frame_with_name
 

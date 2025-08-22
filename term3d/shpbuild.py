@@ -106,6 +106,9 @@ def build_uv_sphere(radius=1.0, segments_x=20, segments_y=10, color=None):
 
     return Mesh(verts, faces, vcols)
 
+build_sphere = build_uv_sphere
+
+
 def build_icosphere(radius=1.0, subdivisions=2, color=None):
     """
     Generates an icosphere mesh.
