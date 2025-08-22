@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
     
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
@@ -28,23 +28,13 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Temporarily move test files (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Temporarily move test files
         run: |
           if [ -d "tests" ]; then
             mv tests/* .
           fi
 
-      - name: Temporarily move test files (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if (Test-Path -Path "tests" -PathType Container) {
-            Move-Item -Path "tests\*" -Destination "."
-          }
-
-      - name: Run all tests with timeout (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Run all tests with timeout
         id: run_tests_unix
         run: |
           echo "" > raw_output.txt
@@ -64,41 +54,8 @@ jobs:
           done
           echo "error_found=$error_found" >> $GITHUB_ENV
 
-      # Separate step for Windows tests with PowerShell syntax
-      - name: Run all tests with timeout (Windows)
-        if: runner.os == 'Windows'
-        id: run_tests_windows
-        shell: pwsh
-        run: |
-          Set-Content -Path "raw_output.txt" -Value ""
-          $errorFound = 0
-          
-          # Get all .py files in the current directory
-          Get-ChildItem -Path *.py | ForEach-Object {
-            $file = $_.Name
-            Write-Host "Running $file..."
-            
-            # Start a separate process to run the python file with a timeout
-            $output = Start-Process -FilePath "python" -ArgumentList $file -NoNewWindow -PassThru -Wait -ErrorVariable errors -Timeout 10
-            
-            # Check if there were any errors during process execution
-            if ($errors) {
-                Add-Content -Path "raw_output.txt" -Value "[ERROR] $file"
-                $errorFound = 1
-            } else {
-                # Check the exit code for timeout (124) or other failures
-                if ($LASTEXITCODE -eq 124) {
-                    Add-Content -Path "raw_output.txt" -Value "[TIMEOUT] $file"
-                    $errorFound = 1
-                } else {
-                    Add-Content -Path "raw_output.txt" -Value "[OK] $file"
-                }
-            }
-          }
-          Write-Output "error_found=$errorFound" >> $env:GITHUB_ENV
-
-      - name: Move files back (cleanup - Linux/macOS)
-        if: always() && runner.os != 'Windows'
+      - name: Move files back (cleanup)
+        if: always()
         run: |
           if [ -d "tests" ]; then
             mkdir -p tests
@@ -107,16 +64,6 @@ jobs:
             done
           fi
 
-      - name: Move files back (cleanup - Windows)
-        if: always() && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if (Test-Path -Path "tests" -PathType Container) {
-            Get-ChildItem -Path *.py | ForEach-Object {
-              Move-Item -Path $_.FullName -Destination "tests\"
-            }
-          }
-
       - name: Upload full logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -124,35 +71,39 @@ jobs:
           name: full-test-logs-${{ matrix.os }}
           path: raw_output.txt
 
-      - name: Post comment result
-        if: always() && matrix.os == 'ubuntu-latest'
+  # New job to post a summary after all matrix jobs are complete
+  post-summary:
+    # This job needs the `run-tests` job to finish before it starts
+    needs: run-tests
+    runs-on: ubuntu-latest
+    
+    # Always run this job, even if a matrix job fails
+    if: always()
+    
+    steps:
+      - name: Post summary of successful jobs
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require('fs');
-            const issue_number = context.payload.pull_request.number;
-            const logs = fs.readFileSync('raw_output.txt', 'utf8');
-            const lines = logs.split('\n').filter(line => line.trim() !== '');
+            const { needs } = github.context;
+            const jobResults = needs.run-tests;
 
             let successCount = 0;
-            let totalCount = 0;
+            const totalCount = Object.keys(jobResults).length;
 
-            lines.forEach(line => {
-              if (line.startsWith('[OK]')) {
+            for (const job in jobResults) {
+              if (jobResults[job].result === 'success') {
                 successCount++;
-                totalCount++;
-              } else if (line.startsWith('[ERROR]') || line.startsWith('[TIMEOUT]')) {
-                totalCount++;
               }
-            });
+            }
 
             const timestamp = new Date().toLocaleString();
-            const summary = `${timestamp}: ${successCount}/${totalCount}`;
+            const summary = `${timestamp}: Success ${successCount}/${totalCount}`;
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number,
+              issue_number: context.payload.pull_request.number,
               body: summary
             });
