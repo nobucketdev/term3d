@@ -1,5 +1,5 @@
 import sys
-from term3d.core import term3d, Vec3, SceneNode
+from term3d.core import term3d, Vec3, SceneNode, DirectionalLight
 from term3d.shpbuild import(
     build_cube, build_uv_sphere, build_torus, build_plane,
     build_cylinder, build_cone, build_pyramid, build_icosphere,
@@ -85,7 +85,7 @@ def main():
 
     index = 0
     current_node = shapes_nodes[index]
-    engine.register_for_rotation(current_node.mesh)
+    engine.register_for_rotation(current_node) # Register the node, not the mesh
     set_mat(current_node.mesh, material)
 
     rotation_step = 0.1
@@ -127,23 +127,23 @@ def main():
     def next_shape():
         nonlocal index, current_node, auto_rotate
         auto_rotate = False
-        engine.rotating_meshes.clear()
-        engine.root.remove(current_node)
+        engine.rotating_nodes.clear() # Clear the rotating nodes
+        engine.remove_node(current_node) # Use the new remove_node
         index = (index + 1) % len(shapes_nodes)
         current_node = shapes_nodes[index]
         engine.root.add(current_node)
-        engine.register_for_rotation(current_node.mesh)
+        engine.register_for_rotation(current_node) # Register the node
         set_mat(current_node.mesh, material)
 
     def prev_shape():
         nonlocal index, current_node, auto_rotate
         auto_rotate = False
-        engine.rotating_meshes.clear()
-        engine.root.remove(current_node)
+        engine.rotating_nodes.clear() # Clear the rotating nodes
+        engine.remove_node(current_node) # Use the new remove_node
         index = (index - 1) % len(shapes_nodes)
         current_node = shapes_nodes[index]
         engine.root.add(current_node)
-        engine.register_for_rotation(current_node.mesh)
+        engine.register_for_rotation(current_node) # Register the node
         set_mat(current_node.mesh, material)
 
     def zoom_in():
@@ -183,7 +183,8 @@ def main():
     engine.set_camera_position(0, 0, zoom)
     engine.set_camera_rotation(0, 0, 0)
     engine.set_ambient_light(150, 150, 150)
-    engine.add_light(Vec3(1, 1, 1), (255, 255, 255), 0.8)
+    # Use the new API to add a directional light
+    engine.add_light_node(DirectionalLight(Vec3(1, 1, 1), (255, 255, 255), 0.8))
     engine.set_render_quality(q)
 
     original_draw_frame = engine._draw_frame
