@@ -11,13 +11,11 @@ permissions:
 
 jobs:
   run-tests:
-    # Use a strategy matrix to run the job on multiple operating systems.
     strategy:
-      fail-fast: false # Ensure all jobs complete even if one fails
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     
-    # The job will run on the OS specified in the matrix.
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
 
@@ -30,27 +28,25 @@ jobs:
         with:
           python-version: "3.x"
 
-      # Note: On Windows, the "Temporarily move test files" and "Move files back" steps
-      # need to use different commands. This is handled by a condition on the step.
       - name: Temporarily move test files (Linux/macOS)
-        if: startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'macos')
+        if: runner.os != 'Windows'
         run: |
           if [ -d "tests" ]; then
             mv tests/* .
           fi
 
       - name: Temporarily move test files (Windows)
-        if: startsWith(matrix.os, 'windows')
-        shell: pwsh # Use PowerShell for Windows commands
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           if (Test-Path -Path "tests" -PathType Container) {
             Move-Item -Path "tests\*" -Destination "."
           }
 
-      - name: Run all tests with timeout
-        id: run_tests
-        # On Windows, use `cmd.exe` as the shell for the `timeout` command.
-        shell: ${{ startsWith(matrix.os, 'windows') && 'cmd' || 'bash' }}
+      # Separate step for Linux/macOS tests
+      - name: Run all tests with timeout (Linux/macOS)
+        if: runner.os != 'Windows'
+        id: run_tests_unix
         run: |
           echo "" > raw_output.txt
           error_found=0
@@ -69,8 +65,32 @@ jobs:
           done
           echo "error_found=$error_found" >> $GITHUB_ENV
 
-      - name: Move files back (cleanup)
-        if: always() && (startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'macos'))
+      # Separate step for Windows tests
+      - name: Run all tests with timeout (Windows)
+        if: runner.os == 'Windows'
+        id: run_tests_windows
+        run: |
+          @echo off
+          echo. > raw_output.txt
+          set "error_found=0"
+          for %%f in (*.py) do (
+            echo Running %%f...
+            timeout 10 python "%%f" >> raw_output.txt 2>&1
+            if !ERRORLEVEL! EQU 0 (
+              echo [OK] %%f >> raw_output.txt
+            ) else if !ERRORLEVEL! EQU 124 (
+              echo [TIMEOUT] %%f >> raw_output.txt
+            ) else (
+              echo [ERROR] %%f >> raw_output.txt
+            )
+            if !ERRORLEVEL! NEQ 0 (
+              set "error_found=1"
+            )
+          )
+          echo error_found=%error_found% >> %GITHUB_ENV%
+
+      - name: Move files back (cleanup - Linux/macOS)
+        if: always() && runner.os != 'Windows'
         run: |
           if [ -d "tests" ]; then
             mkdir -p tests
@@ -78,9 +98,9 @@ jobs:
               mv "$file" tests/
             done
           fi
-      
+
       - name: Move files back (cleanup - Windows)
-        if: always() && startsWith(matrix.os, 'windows')
+        if: always() && runner.os == 'Windows'
         shell: pwsh
         run: |
           if (Test-Path -Path "tests" -PathType Container) {
@@ -93,7 +113,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: full-test-logs-${{ matrix.os }} # Name artifact uniquely for each OS
+          name: full-test-logs-${{ matrix.os }}
           path: raw_output.txt
 
       - name: Post comment result
