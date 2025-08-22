@@ -15,6 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        version: [1, 2, 3, 4, 5]
     
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
@@ -68,5 +69,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: full-test-logs-${{ matrix.os }}
+          name: full-test-logs-${{ matrix.os }}-${{ matrix.version }}
           path: raw_output.txt
