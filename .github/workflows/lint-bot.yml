@@ -1,0 +1,52 @@
+name: Auto Format
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write  # needed to add labels
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install formatters
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort
+
+      - name: Run auto format
+        run: |
+          black . --quiet
+          isort . --quiet
+
+      - name: Commit changes if needed
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: auto-format with black & isort"
+          skip_fetch: true
+
+      - name: Add PR comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: "✅ Formatted"
+
+      - name: Add green label to PR
+        if: github.event_name == 'pull_request'
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: auto-formatted

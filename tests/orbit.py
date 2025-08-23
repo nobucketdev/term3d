@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-import math, os
-from term3d.core import term3d, Vec3
-from term3d.shpbuild import build_cube, build_uv_sphere, build_cylinder, build_torus
-from term3d.utils import set_mat
+import math
+import os
+
+from term3d.core import Vec3, term3d
 from term3d.objects import DirectionalLight
+from term3d.shpbuild import (build_cube, build_cylinder, build_torus,
+                             build_uv_sphere)
+from term3d.utils import set_mat
 
 try:
     cols, rows = os.get_terminal_size(0)
@@ -16,18 +19,20 @@ except Exception:
 WIDTH_CHARS = max(40, min(140, cols))
 HEIGHT_CHARS = max(12, min(60, rows - 2))
 
-print("Welcome to the orbit.py test of term3d engine") 
-print(f"Terminal size: {WIDTH_CHARS}x{HEIGHT_CHARS}") 
-print("Big cube in the middle, orbiting sphere/cylinder/torus.") 
-print("0–7 quality (0=lowest, 7=highest).") 
-valid_qualities = {0, 1, 2, 3, 4, 5, 6, 7} 
-while True: 
-    try: 
-        q = int(input("Quality: ")) 
-        if q in valid_qualities: 
-            break 
-        print("Please type a number from 0–7.") 
-    except ValueError: print("Please type a number from 0–7.")
+print("Welcome to the orbit.py test of term3d engine")
+print(f"Terminal size: {WIDTH_CHARS}x{HEIGHT_CHARS}")
+print("Big cube in the middle, orbiting sphere/cylinder/torus.")
+print("0–7 quality (0=lowest, 7=highest).")
+valid_qualities = {0, 1, 2, 3, 4, 5, 6, 7}
+while True:
+    try:
+        q = int(input("Quality: "))
+        if q in valid_qualities:
+            break
+        print("Please type a number from 0–7.")
+    except ValueError:
+        print("Please type a number from 0–7.")
+
 
 class OrbitScene:
     def __init__(self):
@@ -40,34 +45,39 @@ class OrbitScene:
             self.last_terminal_size = (WIDTH_CHARS, HEIGHT_CHARS)
 
         # --- Scene graph nodes ---
-        self.node_cube   = self.engine.add_mesh_node(build_cube(size=2.5), "cube")
-        self.node_sphere = self.engine.add_mesh_node(build_uv_sphere(radius=0.5), "sphere")
-        self.node_cyl    = self.engine.add_mesh_node(build_cylinder(radius=0.4, height=1.5), "cylinder")
-        self.node_torus  = self.engine.add_mesh_node(build_torus(R=1.0, r=0.5, segments_R=30, segments_r=10), "torus")
+        self.node_cube = self.engine.add_mesh_node(build_cube(size=2.5), "cube")
+        self.node_sphere = self.engine.add_mesh_node(
+            build_uv_sphere(radius=0.5), "sphere"
+        )
+        self.node_cyl = self.engine.add_mesh_node(
+            build_cylinder(radius=0.4, height=1.5), "cylinder"
+        )
+        self.node_torus = self.engine.add_mesh_node(
+            build_torus(R=1.0, r=0.5, segments_R=30, segments_r=10), "torus"
+        )
 
         # Materials
-        set_mat(self.node_cube.mesh, 'wireframe')
-        set_mat(self.node_torus.mesh, 'phong')
+        set_mat(self.node_cube.mesh, "wireframe")
+        set_mat(self.node_torus.mesh, "phong")
 
         # Camera & lighting
         self.engine.reset_camera(stepback=-10)
         self.engine.set_render_quality(q)
         self.engine.set_clear_color(20, 30, 40)
         self.engine.add_light_node(
-            DirectionalLight(Vec3(0.5, 0.7, -1.0), (255,255,255), 0.4),
-            "sun"
+            DirectionalLight(Vec3(0.5, 0.7, -1.0), (255, 255, 255), 0.4), "sun"
         )
-        self.engine.add_pointlight(Vec3(0.0, -3.5, 0.0), (255,255,255), intensity=3.0)
-        self.engine.set_ambient_light(60,60,60)
+        self.engine.add_pointlight(Vec3(0.0, -3.5, 0.0), (255, 255, 255), intensity=3.0)
+        self.engine.set_ambient_light(60, 60, 60)
 
         # Orbit state
-        self.orbit_angle_sphere   = 0.0
+        self.orbit_angle_sphere = 0.0
         self.orbit_angle_cylinder = math.pi / 2
-        self.orbit_angle_torus    = math.pi
+        self.orbit_angle_torus = math.pi
 
-        self.orbit_radius_sphere   = 5.0
+        self.orbit_radius_sphere = 5.0
         self.orbit_radius_cylinder = 6.5
-        self.orbit_radius_torus    = 8.0
+        self.orbit_radius_torus = 8.0
 
         # Hook update
         self.engine._update = self._update_scene
@@ -79,9 +89,9 @@ class OrbitScene:
         self.node_cube.transform.rot.y += 0.8 * dt
 
         self.node_sphere.transform.rot.y += 0.6 * dt
-        self.node_cyl.transform.rot.z    += 1.8 * dt
-        self.node_torus.transform.rot.x  += 1.2 * dt
-        self.node_torus.transform.rot.y  += 0.7 * dt
+        self.node_cyl.transform.rot.z += 1.8 * dt
+        self.node_torus.transform.rot.x += 1.2 * dt
+        self.node_torus.transform.rot.y += 0.7 * dt
 
         # orbital positions
         self.orbit_angle_sphere += 1.22 * dt
@@ -115,22 +125,23 @@ class OrbitScene:
 
     def _bind_camera_keys(self):
         # same as before
-        self.engine.set_key_binding('w', lambda: self.engine.move_camera(z=0.5))
-        self.engine.set_key_binding('s', lambda: self.engine.move_camera(z=-0.5))
-        self.engine.set_key_binding('a', lambda: self.engine.move_camera(x=-0.5))
-        self.engine.set_key_binding('d', lambda: self.engine.move_camera(x=0.5))
-        self.engine.set_key_binding('q', lambda: self.engine.move_camera(y=0.5))
-        self.engine.set_key_binding('e', lambda: self.engine.move_camera(y=-0.5))
-        self.engine.set_key_binding('r', lambda: self.engine.reset_camera(stepback=-10))
-        self.engine.set_key_binding('i', lambda: self.engine.rotate_camera(x=-0.1))
-        self.engine.set_key_binding('k', lambda: self.engine.rotate_camera(x=0.1))
-        self.engine.set_key_binding('j', lambda: self.engine.rotate_camera(y=0.1))
-        self.engine.set_key_binding('l', lambda: self.engine.rotate_camera(y=-0.1))
-        self.engine.set_key_binding('+', lambda: self.engine.zoom_camera(0.25))
-        self.engine.set_key_binding('-', lambda: self.engine.zoom_camera(-0.25))
+        self.engine.set_key_binding("w", lambda: self.engine.move_camera(z=0.5))
+        self.engine.set_key_binding("s", lambda: self.engine.move_camera(z=-0.5))
+        self.engine.set_key_binding("a", lambda: self.engine.move_camera(x=-0.5))
+        self.engine.set_key_binding("d", lambda: self.engine.move_camera(x=0.5))
+        self.engine.set_key_binding("q", lambda: self.engine.move_camera(y=0.5))
+        self.engine.set_key_binding("e", lambda: self.engine.move_camera(y=-0.5))
+        self.engine.set_key_binding("r", lambda: self.engine.reset_camera(stepback=-10))
+        self.engine.set_key_binding("i", lambda: self.engine.rotate_camera(x=-0.1))
+        self.engine.set_key_binding("k", lambda: self.engine.rotate_camera(x=0.1))
+        self.engine.set_key_binding("j", lambda: self.engine.rotate_camera(y=0.1))
+        self.engine.set_key_binding("l", lambda: self.engine.rotate_camera(y=-0.1))
+        self.engine.set_key_binding("+", lambda: self.engine.zoom_camera(0.25))
+        self.engine.set_key_binding("-", lambda: self.engine.zoom_camera(-0.25))
 
     def run(self):
         self.engine.run()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     OrbitScene().run()

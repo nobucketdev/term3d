@@ -1,25 +1,24 @@
 from __future__ import annotations
-from typing import List, Optional, Callable
-from .vec3lib import Vec3
+
+import fnmatch
+import math
+import os
+import shutil
 import sys
 import time
-import os
-import math
-from .shpbuild import *
-from .vec3lib import Vec3
-from .renderer import Renderer
-from .__init__ import __version__
-from .utils import *
-from .objects import *
-from typing import List, Optional, Callable
-import fnmatch
-import shutil
+from typing import Callable, List, Optional
 
+from .__init__ import __version__
+from .objects import *
+from .renderer import Renderer
+from .shpbuild import *
+from .utils import *
+from .vec3lib import Vec3
 
 print(f"Term3D by baod[nobucketdev] - Version {__version__}")
 
 # Cross-platform keyboard handling
-if os.name == 'nt':
+if os.name == "nt":
     import msvcrt
 
     def get_key_nonblocking():
@@ -27,16 +26,17 @@ if os.name == 'nt':
             ch = msvcrt.getch()
             if ch in (b"\x00", b"\xe0"):
                 ch2 = msvcrt.getch()
-                return (ch + ch2).decode(errors='ignore')
+                return (ch + ch2).decode(errors="ignore")
             try:
                 return ch.decode()
             except Exception:
-                return ''
+                return ""
         return None
+
 else:
-    import tty
-    import termios
     import select
+    import termios
+    import tty
 
     def get_key_nonblocking():
         """Reads a keypress from Unix without blocking."""
@@ -55,9 +55,9 @@ class term3d:
     It utilizes a scene graph to organize meshes, lights, and other objects.
 
     ### Attributes
-    - `renderer`: The `Renderer` instance responsible for handling the 
+    - `renderer`: The `Renderer` instance responsible for handling the
       drawing buffers and outputting characters to the terminal.
-    - `camera`: The `Camera` object that defines the viewer's position, 
+    - `camera`: The `Camera` object that defines the viewer's position,
       rotation, zoom, and field of view within the scene.
     - `root`: The root `SceneNode` of the scene graph. All other nodes
       are children of this node, either directly or indirectly.
@@ -161,17 +161,18 @@ class term3d:
     - `_update(dt)`: The main update step of the engine loop.
     - `_handle_input()`: Checks for keyboard input and terminal resizes.
     """
+
     def __init__(self, width_chars, height_chars):
         self.renderer = Renderer(width_chars, height_chars)
         self.renderer.engine_ref = self
         self.camera = Camera(zoom=1.0)
-        
+
         # New scene graph core
-        self.root = SceneNode('root')
-        self.nodes = {'root': self.root}
+        self.root = SceneNode("root")
+        self.nodes = {"root": self.root}
         self.ambient_light = (50, 50, 60)
-        self.rotating_nodes = [] # Tracks nodes for automatic rotation
-        
+        self.rotating_nodes = []  # Tracks nodes for automatic rotation
+
         self.running = True
         self.last_frame_time = time.time()
         self.fps = 0.0
@@ -186,7 +187,12 @@ class term3d:
         self.last_terminal_size = shutil.get_terminal_size(fallback=(80, 24))
 
     # --- Scene Graph API ---
-    def create_node(self, name: str='node', parent: SceneNode=None, tags: Optional[List[str]]=None) -> SceneNode:
+    def create_node(
+        self,
+        name: str = "node",
+        parent: SceneNode = None,
+        tags: Optional[List[str]] = None,
+    ) -> SceneNode:
         if name in self.nodes:
             i = 1
             while f"{name}_{i}" in self.nodes:
@@ -198,18 +204,22 @@ class term3d:
         parent.add(node)
         self.nodes[name] = node
         if tags:
-            node.add_tag(*tags) # Add tags during creation
+            node.add_tag(*tags)  # Add tags during creation
         return node
-    
+
     def get_node(self, name: str) -> Optional[SceneNode]:
         return self.nodes.get(name)
 
-    def add_mesh_node(self, mesh, name: str='mesh', parent: SceneNode=None) -> SceneNode:
+    def add_mesh_node(
+        self, mesh, name: str = "mesh", parent: SceneNode = None
+    ) -> SceneNode:
         node = self.create_node(name, parent)
         node.mesh = mesh
         return node
 
-    def add_light_node(self, light, name: str='light', parent: SceneNode=None) -> SceneNode:
+    def add_light_node(
+        self, light, name: str = "light", parent: SceneNode = None
+    ) -> SceneNode:
         node = self.create_node(name, parent)
         node.light = light
         return node
@@ -217,23 +227,33 @@ class term3d:
     # --- Backwards compatibility for old API methods ---
     def add_light(self, direction, color, intensity=1.0):
         light = DirectionalLight(direction, color, intensity)
-        self.add_light_node(light, name='dir_light')
+        self.add_light_node(light, name="dir_light")
 
-    def add_spotlight(self, position, direction, color, intensity=1.0, inner_angle=15.0, outer_angle=20.0):
-        light = SpotLight(position, direction, color, intensity, inner_angle, outer_angle)
-        self.add_light_node(light, name='spotlight')
+    def add_spotlight(
+        self,
+        position,
+        direction,
+        color,
+        intensity=1.0,
+        inner_angle=15.0,
+        outer_angle=20.0,
+    ):
+        light = SpotLight(
+            position, direction, color, intensity, inner_angle, outer_angle
+        )
+        self.add_light_node(light, name="spotlight")
 
     def add_pointlight(self, position, color, intensity=1.0):
         light = PointLight(position, color, intensity)
-        self.add_light_node(light, name='pointlight')
+        self.add_light_node(light, name="pointlight")
 
     def add_mesh(self, mesh):
-        self.add_mesh_node(mesh, name='legacy_mesh')
-        
+        self.add_mesh_node(mesh, name="legacy_mesh")
+
     def register_for_rotation(self, node: SceneNode):
         if node.mesh is not None:
             self.rotating_nodes.append(node)
-    
+
     def remove_mesh(self, mesh):
         # Find the node that holds this mesh and remove it
         node_to_remove = None
@@ -245,7 +265,7 @@ class term3d:
             self.remove_node(node_to_remove)
 
     # --- End of back-compat changes ---
-    
+
     def set_key_binding(self, key_code, action_function):
         self.key_bindings[key_code] = action_function
 
@@ -254,27 +274,23 @@ class term3d:
         self._update_function = update_function
 
     def set_render_quality(self, quality_level):
-        quality_map = {
-            0: 1/2,  1: 2/3,  2: 3/4,  3: 1,   
-            4: 3/2,  5: 2,    6: 3,    7: 5
-        }
-        
+        quality_map = {0: 1 / 2, 1: 2 / 3, 2: 3 / 4, 3: 1, 4: 3 / 2, 5: 2, 6: 3, 7: 5}
+
         self.quality = quality_level
         resolution_factor = quality_map.get(quality_level)
-        
+
         if resolution_factor is not None:
             self.renderer.set_resolution_factor(resolution_factor)
         else:
             print("Invalid quality level. Setting to Medium.")
             self.set_render_quality(2)
-            
+
     def set_manual_quality(self, quality):
         try:
             self.renderer.set_resolution_factor(quality)
         except ValueError:
             print("Invalid quality value. Setting to 1")
             self.renderer.set_resolution_factor(1)
-
 
     def set_camera_zoom(self, zoom):
         self.camera.zoom = zoom
@@ -292,7 +308,9 @@ class term3d:
         self.camera.pos = pos
         self.camera.rot = rot
 
-    def set_light_properties(self, light_index, direction=None, color=None, intensity=None):
+    def set_light_properties(
+        self, light_index, direction=None, color=None, intensity=None
+    ):
         # This function is now deprecated due to scene graph.
         # It's better to get the light node and change its properties directly.
         pass
@@ -315,39 +333,38 @@ class term3d:
 
     def change_fov(self, delta):
         self.set_camera_fov(self.camera.fov + delta)
-        
+
     def reset_camera(self, stepback):
         self.set_camera_position(0, 0, stepback)
         self.set_camera_zoom(1.0)
         self.set_camera_fov(60.0)
-        self.set_camera_rotation(0,0,0)
-
+        self.set_camera_rotation(0, 0, 0)
 
     # --- Node transform helpers ---
     def set_node_position(self, node: SceneNode, x, y, z):
-        node.set_pos(x,y,z)
+        node.set_pos(x, y, z)
 
     def set_node_rotation(self, node: SceneNode, x, y, z):
-        node.set_rot(x,y,z)
+        node.set_rot(x, y, z)
 
     def set_node_scale(self, node: SceneNode, x, y, z):
-        node.set_scale(x,y,z)
-    
+        node.set_scale(x, y, z)
+
     def set_node_pivot(self, node: SceneNode, x, y, z):
-        node.set_pivot(x,y,z)
-        
+        node.set_pivot(x, y, z)
+
     def get_node_position(self, name: str) -> Optional[Vec3]:
         node = self.get_node(name)
         if node:
             return node.transform.pos
         return None
-    
+
     def get_node_world_rotation(self, name: str) -> Optional[Vec3]:
         node = self.get_node(name)
         if node:
             return node.get_world_rot()
         return None
-        
+
     def get_node_rotation(self, node_id):
         node = self.nodes.get(node_id)
         if node:
@@ -358,15 +375,15 @@ class term3d:
         node = self.nodes.get(node_id)
         if node:
             return node.get_world_rot()
-        return None   
+        return None
 
     def get_node_id(self, name: str) -> Optional[str]:
         """Retrieves a node's unique ID by its name."""
         node = self.get_node(name)
         if node:
             return str(node.id)
-        return None     
-    
+        return None
+
     def find_by_id(self, node_id) -> Optional[SceneNode]:
         return next((n for n in self.nodes.values() if str(n.id) == str(node_id)), None)
 
@@ -380,7 +397,6 @@ class term3d:
         all_nodes = self.list_all_descendants(self.root)
         # Filter the nodes based on the condition
         return [n for n in all_nodes if condition(n)]
-
 
     def find_with_mesh(self) -> List[SceneNode]:
         # Uses the improved find_all method
@@ -398,13 +414,15 @@ class term3d:
 
     def list_all_descendants(self, node: SceneNode) -> List[SceneNode]:
         result = []
+
         def collect(n):
             for child in n.children:
                 result.append(child)
                 collect(child)
+
         collect(node)
         return result
-    
+
     # --- Advanced Tagging and Search APIs ---
     def find_nodes_by_tag(self, tag: str) -> List[SceneNode]:
         """Finds all nodes that have a specific tag."""
@@ -417,24 +435,25 @@ class term3d:
     def find_nodes_with_all_tags(self, *tags: str) -> List[SceneNode]:
         """Finds all nodes that have all of the specified tags."""
         return self.find_all(lambda n: n.has_all_tags(*tags))
-    
+
     def find_nodes_by_name_and_tag(self, pattern: str, tag: str) -> List[SceneNode]:
         """Finds nodes that match a name pattern and have a specific tag."""
-        return self.find_all(lambda n: fnmatch.fnmatch(n.name, pattern) and n.has_tag(tag))
+        return self.find_all(
+            lambda n: fnmatch.fnmatch(n.name, pattern) and n.has_tag(tag)
+        )
 
-    
     def look_at(self, target: Vec3):
         # Calculate the direction vector from the camera to the target
         direction = target - self.camera.pos
-        
+
         # Calculate yaw (rotation around the Y-axis)
         yaw = math.atan2(direction.x, direction.z)
-        
+
         # Calculate pitch (rotation around the X-axis)
         # Use a temporary vector to project the direction onto the XZ plane
         pitch_vector = Vec3(direction.x, 0, direction.z)
         pitch = -math.atan2(direction.y, pitch_vector.length())
-        
+
         # Update camera rotation
         self.camera.rot.x = pitch
         self.camera.rot.y = yaw
@@ -442,35 +461,37 @@ class term3d:
 
     def duplicate_node(self, node: SceneNode, parent: SceneNode = None) -> SceneNode:
         import copy
-        
+
         # Create a new node and recursively duplicate its children
-        new_node = self.create_node(name=node.name + "_copy", parent=parent or node.parent)
+        new_node = self.create_node(
+            name=node.name + "_copy", parent=parent or node.parent
+        )
         new_node.transform = copy.deepcopy(node.transform)
-        
+
         if node.mesh:
             new_node.mesh = copy.deepcopy(node.mesh)
-        
+
         if node.light:
             new_node.light = copy.deepcopy(node.light)
-        
+
         for child in node.children:
             self.duplicate_node(child, new_node)
-            
+
         return new_node
-        
+
     def remove_node(self, node: SceneNode):
         # Recursively remove children first
         for child in list(node.children):
             self.remove_node(child)
-        
+
         # Remove the node from the master dictionary
         if node.name in self.nodes:
             del self.nodes[node.name]
-        
+
         # Remove the node from its parent
         if node.parent:
             node.parent.remove(node)
-            
+
         if node in self.rotating_nodes:
             self.rotating_nodes.remove(node)
 
@@ -484,7 +505,11 @@ class term3d:
         self.is_visible = not self.is_visible
 
     def set_clear_color(self, r, g, b):
-        self.renderer.clear_color = (clamp(r, 0, 255), clamp(g, 0, 255), clamp(b, 0, 255))
+        self.renderer.clear_color = (
+            clamp(r, 0, 255),
+            clamp(g, 0, 255),
+            clamp(b, 0, 255),
+        )
 
     def set_fps(self, fps):
         self.tar_fps = fps
@@ -496,8 +521,10 @@ class term3d:
 
         self.renderer.base_width_c = width_chars
         self.renderer.base_height_c = height_chars
-        self.renderer.set_resolution_factor(self.renderer.res_factor) # Re-initializes buffers
-        sys.stdout.write(CLEAR_SCREEN) # Clear the screen after resizing
+        self.renderer.set_resolution_factor(
+            self.renderer.res_factor
+        )  # Re-initializes buffers
+        sys.stdout.write(CLEAR_SCREEN)  # Clear the screen after resizing
 
     def set_title(self, title):
         """Sets the terminal window title."""
@@ -510,7 +537,7 @@ class term3d:
     def run(self):
         try:
             # Check if sys.stdin is a tty before attempting to get terminal settings
-            if os.name != 'nt' and sys.stdin.isatty():
+            if os.name != "nt" and sys.stdin.isatty():
                 self.old_settings = termios.tcgetattr(sys.stdin)
                 tty.setcbreak(sys.stdin.fileno())
                 self.has_tty = True
@@ -541,11 +568,11 @@ class term3d:
             self.running = False
             sys.stdout.write(RESET)
             sys.stdout.write(SHOW_CURSOR)
-            sys.stdout.write('\n')
-            sys.stdout.write(SET_TITLE.format(title="")) # Clear title on exit
+            sys.stdout.write("\n")
+            sys.stdout.write(SET_TITLE.format(title=""))  # Clear title on exit
             sys.stdout.flush()
             # Only restore settings if they were successfully saved
-            if os.name != 'nt' and self.has_tty:
+            if os.name != "nt" and self.has_tty:
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
 
     def _render_scene(self):
@@ -553,7 +580,7 @@ class term3d:
 
         meshes_to_render = []
         lights_in_scene = []
-        
+
         # Collect all meshes and lights from the scene graph
         def collect_objects(node: SceneNode):
             # NEW: Check for visibility before adding to render list
@@ -564,39 +591,39 @@ class term3d:
                 meshes_to_render.append(node)
             if node.light is not None:
                 lights_in_scene.append(node)
-                
+
             # Recursively check children's visibility
             for child in node.children:
                 collect_objects(child)
-        
+
         collect_objects(self.root)
 
         # Render each mesh
         for node in meshes_to_render:
             self.renderer.render_mesh(
-                node.mesh, 
-                self.camera, 
-                [l.light for l in lights_in_scene], 
-                model_matrix=node.world_matrix()
+                node.mesh,
+                self.camera,
+                [l.light for l in lights_in_scene],
+                model_matrix=node.world_matrix(),
             )
 
     def _draw_frame(self):
         lines = self.renderer.compose_to_chars()
 
         # Position cursor at top-left
-        sys.stdout.write(CSI + 'H')
+        sys.stdout.write(CSI + "H")
 
         # Write the rendered scene
-        sys.stdout.write('\n'.join(lines))
+        sys.stdout.write("\n".join(lines))
 
         # Optionally write status text
         if self.show_status_text:
-            
+
             total_verts = 0
             total_tris = 0
             num_meshes = 0
             lights_in_scene = []
-            
+
             def collect_stats(node: SceneNode):
                 nonlocal total_verts, total_tris, num_meshes
                 if node.mesh:
@@ -605,7 +632,7 @@ class term3d:
                     num_meshes += 1
                 if node.light:
                     lights_in_scene.append(node.light)
-            
+
             self.root.traverse(collect_stats)
 
             lights_info = ""
@@ -614,24 +641,42 @@ class term3d:
                 for i, light in enumerate(lights_in_scene):
                     light_type = "Unknown"
                     props = []
-                    
+
                     if isinstance(light, DirectionalLight):
                         light_type = "Directional"
-                        props.append(f"Direction:   ({light.direction.x:.1f}, {light.direction.y:.1f}, {light.direction.z:.1f})")
-                        props.append(f"Color:       RGB({light.color[0]}, {light.color[1]}, {light.color[2]})")
+                        props.append(
+                            f"Direction:   ({light.direction.x:.1f}, {light.direction.y:.1f}, {light.direction.z:.1f})"
+                        )
+                        props.append(
+                            f"Color:       RGB({light.color[0]}, {light.color[1]}, {light.color[2]})"
+                        )
                         props.append(f"Intensity:   {light.intensity:.1f}")
                     elif isinstance(light, SpotLight):
                         light_type = "Spotlight"
-                        props.append(f"Position:    ({light.position.x:.1f}, {light.position.y:.1f}, {light.position.z:.1f})")
-                        props.append(f"Direction:   ({light.direction.x:.1f}, {light.direction.y:.1f}, {light.direction.z:.1f})")
-                        props.append(f"Color:       RGB({light.color[0]}, {light.color[1]}, {light.color[2]})")
+                        props.append(
+                            f"Position:    ({light.position.x:.1f}, {light.position.y:.1f}, {light.position.z:.1f})"
+                        )
+                        props.append(
+                            f"Direction:   ({light.direction.x:.1f}, {light.direction.y:.1f}, {light.direction.z:.1f})"
+                        )
+                        props.append(
+                            f"Color:       RGB({light.color[0]}, {light.color[1]}, {light.color[2]})"
+                        )
                         props.append(f"Intensity:   {light.intensity:.1f}")
-                        props.append(f"Inner Angle: {math.degrees(light.inner_angle):.1f}°")
-                        props.append(f"Outer Angle: {math.degrees(light.outer_angle):.1f}°")
+                        props.append(
+                            f"Inner Angle: {math.degrees(light.inner_angle):.1f}°"
+                        )
+                        props.append(
+                            f"Outer Angle: {math.degrees(light.outer_angle):.1f}°"
+                        )
                     elif isinstance(light, PointLight):
                         light_type = "Point"
-                        props.append(f"Position:    ({light.position.x:.1f}, {light.position.y:.1f}, {light.position.z:.1f})")
-                        props.append(f"Color:       RGB({light.color[0]}, {light.color[1]}, {light.color[2]})")
+                        props.append(
+                            f"Position:    ({light.position.x:.1f}, {light.position.y:.1f}, {light.position.z:.1f})"
+                        )
+                        props.append(
+                            f"Color:       RGB({light.color[0]}, {light.color[1]}, {light.color[2]})"
+                        )
                         props.append(f"Intensity:   {light.intensity:.1f}")
 
                     props_str = "\n  ".join(props)
@@ -647,9 +692,9 @@ Zoom:    {self.camera.zoom:<6.2f}    FOV: {self.camera.fov:.1f}°
 Scene:   {num_meshes} meshes, {total_verts} verts, {total_tris} tris
 {lights_info}
             """
-            
+
             # Position the cursor at the top-left and overwrite with the new status text
-            sys.stdout.write(CSI + 'H' + status)
+            sys.stdout.write(CSI + "H" + status)
 
         sys.stdout.flush()
 
@@ -664,7 +709,7 @@ Scene:   {num_meshes} meshes, {total_verts} verts, {total_tris} tris
     def _handle_input(self):
         key = get_key_nonblocking()
         if key:
-            if key in ('\x1b', '\x03'):
+            if key in ("\x1b", "\x03"):
                 self.running = False
                 return
 
@@ -677,13 +722,15 @@ Scene:   {num_meshes} meshes, {total_verts} verts, {total_tris} tris
             current_size = os.get_terminal_size()
             if current_size != self.last_terminal_size:
                 # Adjust height to account for status text
-                status_lines = 6 # number of lines in the status text
+                status_lines = 6  # number of lines in the status text
                 if not self.show_status_text:
                     status_lines = 0
-                self.resize_engine(current_size.columns, current_size.lines - status_lines)
+                self.resize_engine(
+                    current_size.columns, current_size.lines - status_lines
+                )
                 self.last_terminal_size = current_size
         except Exception:
-            pass # Ignore errors if terminal size can't be retrieved
+            pass  # Ignore errors if terminal size can't be retrieved
 
     def test(self):
         """
@@ -694,27 +741,27 @@ Scene:   {num_meshes} meshes, {total_verts} verts, {total_tris} tris
 
         # Set up the demo scene
         self.set_title("Term3D Test Scene")
-        
+
         # Build a cube mesh using the helper function from shape_builder
         cube_mesh = build_cube(2.0)
         # Add the cube as a node to the scene graph
-        cube_node = self.add_mesh_node(cube_mesh, name='cube')
+        cube_node = self.add_mesh_node(cube_mesh, name="cube")
         self.register_for_rotation(cube_node)
-        
+
         # Add a directional light
         self.add_light(Vec3(0.5, 0.5, -1), (255, 255, 255), intensity=1.0)
-        
+
         # Set camera properties
         self.set_camera_position(0, 0, 1.5)
         self.set_camera_fov(60)
-        
+
         # Set up basic keyboard controls
-        self.set_key_binding('w', lambda: self.move_camera(z=0.5))
-        self.set_key_binding('s', lambda: self.move_camera(z=-0.5))
-        self.set_key_binding('a', lambda: self.rotate_camera(y=0.1))
-        self.set_key_binding('d', lambda: self.rotate_camera(y=-0.1))
-        self.set_key_binding('q', lambda: self.zoom_camera(-0.5))
-        self.set_key_binding('e', lambda: self.zoom_camera(0.5))
+        self.set_key_binding("w", lambda: self.move_camera(z=0.5))
+        self.set_key_binding("s", lambda: self.move_camera(z=-0.5))
+        self.set_key_binding("a", lambda: self.rotate_camera(y=0.1))
+        self.set_key_binding("d", lambda: self.rotate_camera(y=-0.1))
+        self.set_key_binding("q", lambda: self.zoom_camera(-0.5))
+        self.set_key_binding("e", lambda: self.zoom_camera(0.5))
 
         # Run the main loop
         self.run()

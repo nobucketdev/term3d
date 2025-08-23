@@ -1,15 +1,17 @@
 import sys
-from term3d.core import term3d, Vec3, SceneNode, DirectionalLight
-from term3d.shpbuild import(
-    build_cube, build_uv_sphere, build_torus, build_plane,
-    build_cylinder, build_cone, build_pyramid, build_icosphere,
-    build_mobius_strip, build_klein_bottle, build_heart,
-    build_dinis_surface, build_conical_helix, build_catenoid,
-    build_capsule
-)
+
+from term3d.core import DirectionalLight, Vec3, term3d
+from term3d.shpbuild import (build_capsule, build_catenoid, build_cone,
+                             build_conical_helix, build_cube, build_cylinder,
+                             build_dinis_surface, build_heart, build_icosphere,
+                             build_klein_bottle, build_mobius_strip,
+                             build_plane, build_pyramid, build_torus,
+                             build_uv_sphere)
 from term3d.utils import set_mat
 
-print("Welcome to the shape_show.py test of term3d engine\nPlease maximize terminal size and enter 0 - 7 quality setting\n0-1: Very Low, 2: Low, 3: Normal, 4-5: High, 6: Very High, 7: Extreme")
+print(
+    "Welcome to the shape_show.py test of term3d engine\nPlease maximize terminal size and enter 0 - 7 quality setting\n0-1: Very Low, 2: Low, 3: Normal, 4-5: High, 6: Very High, 7: Extreme"
+)
 valid_qualities = {0, 1, 2, 3, 4, 5, 6, 7}
 while True:
     try:
@@ -26,7 +28,7 @@ print("2: Custom RGB color")
 color_choice = input("Enter your choice (1 or 2): ")
 
 selected_color = None
-if color_choice == '2':
+if color_choice == "2":
     try:
         r = int(input("Enter R value (0-255): "))
         g = int(input("Enter G value (0-255): "))
@@ -57,6 +59,7 @@ elif m == 1:
 elif m == 2:
     material = "wireframe"
 
+
 def main():
     width, height = 80, 40
     engine = term3d(width, height)
@@ -85,7 +88,7 @@ def main():
 
     index = 0
     current_node = shapes_nodes[index]
-    engine.register_for_rotation(current_node) # Register the node, not the mesh
+    engine.register_for_rotation(current_node)  # Register the node, not the mesh
     set_mat(current_node.mesh, material)
 
     rotation_step = 0.1
@@ -97,53 +100,77 @@ def main():
     def rotate_x_pos():
         nonlocal auto_rotate
         auto_rotate = False
-        current_node.set_rot(current_node.transform.rot.x + rotation_step, current_node.transform.rot.y, current_node.transform.rot.z)
+        current_node.set_rot(
+            current_node.transform.rot.x + rotation_step,
+            current_node.transform.rot.y,
+            current_node.transform.rot.z,
+        )
 
     def rotate_x_neg():
         nonlocal auto_rotate
         auto_rotate = False
-        current_node.set_rot(current_node.transform.rot.x - rotation_step, current_node.transform.rot.y, current_node.transform.rot.z)
+        current_node.set_rot(
+            current_node.transform.rot.x - rotation_step,
+            current_node.transform.rot.y,
+            current_node.transform.rot.z,
+        )
 
     def rotate_y_pos():
         nonlocal auto_rotate
         auto_rotate = False
-        current_node.set_rot(current_node.transform.rot.x, current_node.transform.rot.y + rotation_step, current_node.transform.rot.z)
+        current_node.set_rot(
+            current_node.transform.rot.x,
+            current_node.transform.rot.y + rotation_step,
+            current_node.transform.rot.z,
+        )
 
     def rotate_y_neg():
         nonlocal auto_rotate
         auto_rotate = False
-        current_node.set_rot(current_node.transform.rot.x, current_node.transform.rot.y - rotation_step, current_node.transform.rot.z)
+        current_node.set_rot(
+            current_node.transform.rot.x,
+            current_node.transform.rot.y - rotation_step,
+            current_node.transform.rot.z,
+        )
 
     def rotate_z_pos():
         nonlocal auto_rotate
         auto_rotate = False
-        current_node.set_rot(current_node.transform.rot.x, current_node.transform.rot.y, current_node.transform.rot.z + rotation_step)
+        current_node.set_rot(
+            current_node.transform.rot.x,
+            current_node.transform.rot.y,
+            current_node.transform.rot.z + rotation_step,
+        )
 
     def rotate_z_neg():
         nonlocal auto_rotate
         auto_rotate = False
-        current_node.set_rot(current_node.transform.rot.x, current_node.transform.rot.y, current_node.transform.rot.z - rotation_step)
+        current_node.set_rot(
+            current_node.transform.rot.x,
+            current_node.transform.rot.y,
+            current_node.transform.rot.z - rotation_step,
+        )
 
     def next_shape():
         nonlocal index, current_node, auto_rotate
         auto_rotate = False
-        engine.rotating_nodes.clear() # Clear the rotating nodes
-        engine.remove_node(current_node) # Use the new remove_node
+        engine.rotating_nodes.clear()  # Clear the rotating nodes
+        engine.remove_node(current_node)  # Use the new remove_node
         index = (index + 1) % len(shapes_nodes)
         current_node = shapes_nodes[index]
         engine.root.add(current_node)
-        engine.register_for_rotation(current_node) # Register the node
+        engine.register_for_rotation(current_node)  # Register the node
         set_mat(current_node.mesh, material)
 
     def prev_shape():
         nonlocal index, current_node, auto_rotate
         auto_rotate = False
-        engine.rotating_nodes.clear() # Clear the rotating nodes
-        engine.remove_node(current_node) # Use the new remove_node
+        engine.rotating_nodes.clear()  # Clear the rotating nodes
+        engine.remove_node(current_node)  # Use the new remove_node
         index = (index - 1) % len(shapes_nodes)
         current_node = shapes_nodes[index]
         engine.root.add(current_node)
-        engine.register_for_rotation(current_node) # Register the node
+        engine.register_for_rotation(current_node)  # Register the node
         set_mat(current_node.mesh, material)
 
     def zoom_in():
@@ -166,19 +193,19 @@ def main():
         auto_rotate = not auto_rotate
 
     # Bind keys
-    engine.set_key_binding('q', rotate_x_neg)
-    engine.set_key_binding('e', rotate_x_pos)
-    engine.set_key_binding('w', rotate_y_neg)
-    engine.set_key_binding('s', rotate_y_pos)
-    engine.set_key_binding('a', rotate_z_neg)
-    engine.set_key_binding('d', rotate_z_pos)
-    engine.set_key_binding('j', prev_shape)
-    engine.set_key_binding('l', next_shape)
-    engine.set_key_binding('z', zoom_in)
-    engine.set_key_binding('x', zoom_out)
-    engine.set_key_binding('\x1b', quit_app)
-    engine.set_key_binding('\x03', quit_app)
-    engine.set_key_binding('r', toggle_auto_rotate)
+    engine.set_key_binding("q", rotate_x_neg)
+    engine.set_key_binding("e", rotate_x_pos)
+    engine.set_key_binding("w", rotate_y_neg)
+    engine.set_key_binding("s", rotate_y_pos)
+    engine.set_key_binding("a", rotate_z_neg)
+    engine.set_key_binding("d", rotate_z_pos)
+    engine.set_key_binding("j", prev_shape)
+    engine.set_key_binding("l", next_shape)
+    engine.set_key_binding("z", zoom_in)
+    engine.set_key_binding("x", zoom_out)
+    engine.set_key_binding("\x1b", quit_app)
+    engine.set_key_binding("\x03", quit_app)
+    engine.set_key_binding("r", toggle_auto_rotate)
 
     engine.set_camera_position(0, 0, zoom)
     engine.set_camera_rotation(0, 0, 0)
@@ -188,6 +215,7 @@ def main():
     engine.set_render_quality(q)
 
     original_draw_frame = engine._draw_frame
+
     def draw_frame_with_name():
         nonlocal auto_rotate
         if auto_rotate:
@@ -199,8 +227,11 @@ def main():
         rot = current_node.transform.rot
 
         status = "On" if auto_rotate else "Off"
-        sys.stdout.write(f"\x1b[{height+1};1HShape: {current_node.name} | Rot: X={rot.x:.2f} Y={rot.y:.2f} Z={rot.z:.2f} Zoom: {-zoom:.1f} \nQWEASD rotate, R toggle auto-rotate, J/L switch shape, Z/X zoom, ESC quit")
+        sys.stdout.write(
+            f"\x1b[{height+1};1HShape: {current_node.name} | Rot: X={rot.x:.2f} Y={rot.y:.2f} Z={rot.z:.2f} Zoom: {-zoom:.1f} \nQWEASD rotate, R toggle auto-rotate, J/L switch shape, Z/X zoom, ESC quit"
+        )
         sys.stdout.flush()
+
     engine._draw_frame = draw_frame_with_name
 
     engine.run()
