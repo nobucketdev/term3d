@@ -1,0 +1,73 @@
+name: 💡 Feature Request
+description: Suggest a new feature or improvement for the project
+title: "[FEATURE] <short description>"
+labels: [enhancement]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing an idea 💡  
+        Please fill out the details below to help us understand your request.  
+
+  - type: input
+    id: summary
+    attributes:
+      label: 🔎 Feature Summary
+      description: Provide a clear, one-sentence summary of the requested feature.
+      placeholder: "Add support for exporting scenes to .obj format"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 📖 Detailed Description
+      description: Explain the feature in more detail. What should it do and how?
+      placeholder: "It would be useful if Term3D could export meshes to .obj for external use..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 🎯 Motivation
+      description: Why is this feature important? What problem does it solve?
+      placeholder: "This would let users share 3D models across tools and pipelines."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternatives
+      description: Have you considered alternative solutions or workarounds?
+      placeholder: "Right now, I manually reconstruct the geometry in Blender, which is time-consuming."
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: 🚀 Expected Benefits
+      description: What benefits would this feature bring to users or the project?
+      placeholder: "Improves interoperability with external 3D tools and speeds up workflow."
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: ⚡ Priority
+      description: How important is this feature to you?
+      options:
+        - "🟢 Nice to have – a small improvement"
+        - "🟡 Useful – improves usability or productivity"
+        - "🔴 Important – enables major workflows"
+        - "🔥 Critical – project is incomplete without it"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 📌 Additional Context
+      description: Add any other details, sketches, or references that might help us understand your request.
+      placeholder: "Inspired by the way Three.js handles exports..."
