@@ -8,7 +8,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug 🙏  
+        Thanks for taking the time to report a bug.  
         Please fill out the details below as completely as possible.  
         This helps us reproduce and fix the issue faster.  
 
@@ -17,7 +17,7 @@ body:
     attributes:
       label: 🔎 Bug Summary
       description: Provide a clear, one-sentence summary of the bug.
-      placeholder: "App crashes when clicking 'Save' on Settings page"
+      placeholder: "Program crashes when..."
     validations:
       required: true
 
@@ -26,7 +26,7 @@ body:
     attributes:
       label: 🐞 Detailed Description
       description: A more detailed explanation of the bug.
-      placeholder: "When I try to save settings, the app freezes and logs an error..."
+      placeholder: "When I try to create a sphere..."
     validations:
       required: true
 
@@ -36,10 +36,10 @@ body:
       label: ✅ Steps to Reproduce
       description: Step-by-step instructions to reproduce the behavior.
       placeholder: |
-        1. Open the app
-        2. Navigate to Settings
-        3. Click 'Save'
-        4. Observe freeze/crash
+        1. Create an instance of Term3D
+        2. Create a large sphere
+        3. Attach a cube to it
+        4. ...and the program crashes
     validations:
       required: true
 
@@ -48,7 +48,7 @@ body:
     attributes:
       label: 🤔 Expected Behavior
       description: What you expected to happen instead.
-      placeholder: "The app should save settings and return to the dashboard."
+      placeholder: "The program should handle this flawlessly."
     validations:
       required: true
 
@@ -56,8 +56,8 @@ body:
     id: actual
     attributes:
       label: 💥 Actual Behavior
-      description: What actually happens, including error messages if any.
-      placeholder: "The app freezes and throws 'NullReferenceException' in logs."
+      description: What actually happens, including any error messages.
+      placeholder: "The program crashes."
     validations:
       required: true
 
@@ -85,8 +85,8 @@ body:
     id: environment
     attributes:
       label: 🖥️ Environment
-      description: Describe your environment (OS, browser, runtime, versions).
-      placeholder: "Windows 11, Python 3.11.5, Project v2.0.0"
+      description: Describe your environment (OS, Python version, etc.).
+      placeholder: "Windows 11, CPython 3.11.9, using Windows Subsystem for Linux (WSL)"
     validations:
       required: true
 
@@ -94,8 +94,8 @@ body:
     id: version
     attributes:
       label: 📌 Affected Version
-      description: Which version of the project are you using?
-      placeholder: "e.g., 2.0.0"
+      description: Which version of the project are you using? (commit hash, release tag, or current)
+      placeholder: "e.g., 4eb9a2 / v0.0.1 / current"
     validations:
       required: true
 
@@ -116,11 +116,11 @@ body:
     attributes:
       label: 🛠️ Workarounds
       description: Do you have a temporary fix or workaround?
-      placeholder: "Restarting the app fixes the issue temporarily."
+      placeholder: "Using the legacy mesh temporarily fixes the issue, but it is no longer supported in this version."
 
   - type: textarea
     id: context
     attributes:
       label: 📌 Additional Context
       description: Any other context or info that could help us investigate.
-      placeholder: "This happens only when network connection is slow."
+      placeholder: "This happens only when the mesh is very large."
