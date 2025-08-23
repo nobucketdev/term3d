@@ -1,7 +1,6 @@
 from typing import List, Tuple
 
 from .math3d import Mat4, Vec3
-
 from .objects import DirectionalLight, PointLight, SpotLight
 from .utils import *
 
@@ -277,72 +276,67 @@ class Renderer:
     # --- Shading and Rasterization ---
     def _calculate_flat_color(
         self,
-        base_color: Tuple[int, int, int],
+        base_color: Tuple[int,int,int],
         normal: Vec3,
         frag_pos: Vec3,
-        lights: List,
-        ambient_light: Tuple[float, float, float],
-    ) -> Tuple[int, int, int]:
-        """Flat shading: ambient + diffuse, supporting directional and spot lights."""
-        br, bg, bb = base_color
-        ar, ag, ab = ambient_light
-        nx, ny, nz = normal.x, normal.y, normal.z
+        lights: list,
+        ambient_light: Tuple[float,float,float]
+    ) -> Tuple[int,int,int]:
+        """Optimized flat shading: ambient + diffuse."""
+        br,bg,bb = base_color
+        ar,ag,ab = ambient_light
+        nx,ny,nz = normal.x, normal.y, normal.z
 
-        # Start with ambient contribution
+        # Start with ambient
         total_r = br * ar
         total_g = bg * ag
         total_b = bb * ab
 
         for ltype, ldata, lcolor, lintensity in lights:
-            if ltype == "directional":
+            lr,lg,lb = lcolor
+
+            if ltype=="directional":
                 light_dir = -ldata
-                intensity = (
-                    max(nx * light_dir.x + ny * light_dir.y + nz * light_dir.z, 0.0)
-                    * lintensity
-                )
-                spot_factor = 1.0
-                dist_factor = 1.0
-            elif ltype == "spot":
-                spotlight = ldata
-                L = (spotlight.position - frag_pos).norm()
-                diff = max(normal.dot(L), 0.0)
-                spot_factor = spotlight.cone_factor(frag_pos)
-                dist_factor = spotlight.attenuation(frag_pos)
-                intensity = diff * lintensity * spot_factor * dist_factor
-            elif ltype == "point":
-                pointlight = ldata
-                light_vec = (pointlight.position - frag_pos).norm()
-                diff = max(normal.dot(light_vec), 0.0)
-                dist_factor = pointlight.attenuation(frag_pos)
-                intensity = diff * lintensity * dist_factor
-                spot_factor = 1.0  # Point lights have no cone factor
+                diff = nx*light_dir.x + ny*light_dir.y + nz*light_dir.z
+                if diff <= 0.0:
+                    continue
+                factor = diff * lintensity
+            elif ltype=="spot":
+                L = (ldata.position - frag_pos).norm()
+                diff = max(normal.dot(L),0.0)
+                if diff <= 0.0:
+                    continue
+                factor = diff * lintensity * ldata.cone_factor(frag_pos) * ldata.attenuation(frag_pos)
+            elif ltype=="point":
+                L = (ldata.position - frag_pos).norm()
+                diff = max(normal.dot(L),0.0)
+                if diff <= 0.0:
+                    continue
+                factor = diff * lintensity * ldata.attenuation(frag_pos)
             else:
                 continue
 
-            lr, lg, lb = lcolor
-            total_r += br * lr * intensity
-            total_g += bg * lg * intensity
-            total_b += bb * lb * intensity
+            # Diffuse contribution
+            total_r += br * lr * factor
+            total_g += bg * lg * factor
+            total_b += bb * lb * factor
 
-        final_r = clamp(int(total_r), 0, 255)
-        final_g = clamp(int(total_g), 0, 255)
-        final_b = clamp(int(total_b), 0, 255)
-        return final_r, final_g, final_b
+        return clamp(int(total_r),0,255), clamp(int(total_g),0,255), clamp(int(total_b),0,255)
+
 
     def _calculate_phong_color(
         self,
-        base_color: Tuple[int, int, int],
+        base_color: Tuple[int,int,int],
         normal: Vec3,
         view_dir: Vec3,
-        lights: List,
-        ambient_light: Tuple[float, float, float],
-        frag_pos: Vec3,
-    ) -> Tuple[int, int, int]:
-        """Phong shading: ambient + diffuse + specular, supporting directional and spot lights."""
-        br, bg, bb = base_color
-        ar, ag, ab = ambient_light
+        lights: list,
+        ambient_light: Tuple[float,float,float],
+        frag_pos: Vec3
+    ) -> Tuple[int,int,int]:
+        """Optimized Phong shading: ambient + diffuse + specular."""
+        br,bg,bb = base_color
+        ar,ag,ab = ambient_light
 
-        # Phong parameters
         specular_strength = 0.5
         shininess = 32
 
@@ -352,69 +346,53 @@ class Renderer:
         total_b = bb * ab
 
         for ltype, ldata, lcolor, lintensity in lights:
-            if ltype == "directional":
-                light_vec = -ldata.norm()
-                diff = max(normal.dot(light_vec), 0.0)
+            lr, lg, lb = lcolor
+
+            # Compute light vector and factors
+            if ltype=="directional":
+                light_vec = -ldata
+                light_vec_norm = light_vec.norm()
+                diff = max(normal.dot(light_vec_norm), 0.0)
                 spot_factor = 1.0
                 dist_factor = 1.0
-            elif ltype == "spot":
-                spotlight = ldata
-                L = (spotlight.position - frag_pos).norm()
-                light_vec = L
+            elif ltype=="spot":
+                L = (ldata.position - frag_pos).norm()
+                light_vec_norm = L
                 diff = max(normal.dot(L), 0.0)
-                spot_factor = spotlight.cone_factor(frag_pos)
-                dist_factor = spotlight.attenuation(frag_pos)
-            elif ltype == "point":
-                pointlight = ldata
-                light_vec = (pointlight.position - frag_pos).norm()
-                diff = max(normal.dot(light_vec), 0.0)
-                dist_factor = pointlight.attenuation(frag_pos)
-                intensity = diff * lintensity * dist_factor
-                spot_factor = 1.0  # Point lights have no cone factor
+                spot_factor = ldata.cone_factor(frag_pos)
+                dist_factor = ldata.attenuation(frag_pos)
+            elif ltype=="point":
+                L = (ldata.position - frag_pos).norm()
+                light_vec_norm = L
+                diff = max(normal.dot(L), 0.0)
+                dist_factor = ldata.attenuation(frag_pos)
+                spot_factor = 1.0
             else:
                 continue
 
-            lr, lg, lb = lcolor
-            # Diffuse
-            total_r += br * lr * diff * lintensity * spot_factor * dist_factor
-            total_g += bg * lg * diff * lintensity * spot_factor * dist_factor
-            total_b += bb * lb * diff * lintensity * spot_factor * dist_factor
+            if diff <= 0.0:
+                continue  # skip lights that don't contribute
+
+            # Combined factor
+            factor = diff * lintensity * spot_factor * dist_factor
+
+            # Diffuse contribution
+            total_r += br * lr * factor
+            total_g += bg * lg * factor
+            total_b += bb * lb * factor
 
             # Specular
-            reflect_dir = (normal * 2 * normal.dot(light_vec) - light_vec).norm()
+            dot_nl = normal.dot(light_vec_norm)
+            reflect_dir = (normal * 2 * dot_nl - light_vec_norm).norm()
             spec = max(view_dir.dot(reflect_dir), 0.0) ** shininess
-            total_r += (
-                255
-                * lr
-                * specular_strength
-                * spec
-                * lintensity
-                * spot_factor
-                * dist_factor
-            )
-            total_g += (
-                255
-                * lg
-                * specular_strength
-                * spec
-                * lintensity
-                * spot_factor
-                * dist_factor
-            )
-            total_b += (
-                255
-                * lb
-                * specular_strength
-                * spec
-                * lintensity
-                * spot_factor
-                * dist_factor
-            )
+            spec_factor = 255 * specular_strength * spec * lintensity * spot_factor * dist_factor
 
-        final_r = clamp(int(total_r), 0, 255)
-        final_g = clamp(int(total_g), 0, 255)
-        final_b = clamp(int(total_b), 0, 255)
-        return final_r, final_g, final_b
+            total_r += lr * spec_factor
+            total_g += lg * spec_factor
+            total_b += lb * spec_factor
+
+        return clamp(int(total_r),0,255), clamp(int(total_g),0,255), clamp(int(total_b),0,255)
+
 
     def _draw_wireframe(self, mesh, projected_verts, color=(255, 255, 255)):
         """Draws triangle edges as lines (Bresenham) with depth check."""
@@ -451,142 +429,189 @@ class Renderer:
                         err += dx
                         y += sy
 
-    def _rasterize_triangles(self, mesh, transformed_verts, projected_verts, lights, ambient):
-        """
-        Rasterizes triangles into color and depth buffers.
-        Fully optimized pure Python version.
-        """
+    def _rasterize_triangles(
+        self, mesh, transformed_verts, projected_verts, lights, ambient
+    ):
         if mesh.material == "wireframe":
             self._draw_wireframe(mesh, projected_verts)
             return
 
-        pw, ph = self.pixel_width, self.pixel_height
-        depth_buf = self.depth_buffer
-        color_buf = self.color_buffer
+        pixel_width, pixel_height = self.pixel_width, self.pixel_height
+        depth_buffer = self.depth_buffer
+        color_buffer = self.color_buffer
 
         for i0, i1, i2 in mesh.faces:
-            # Projected vertices
             x0, y0, z0 = projected_verts[i0]
             x1, y1, z1 = projected_verts[i1]
             x2, y2, z2 = projected_verts[i2]
 
-            # Skip clipped triangles
+            # Skip triangles that are too close to the camera (or are clipped).
             if z0 == float("inf") or z1 == float("inf") or z2 == float("inf"):
                 continue
 
-            # Backface culling
-            area = (x1 - x0)*(y2 - y0) - (y1 - y0)*(x2 - x0)
-            if area == 0:
-                continue
-            inv_area = 1.0 / area
-            if area < 0:
-                continue  # Cull backfaces
+            # Backface culling: Check if the triangle is facing away from the camera.
+            # Use the sign of the cross product for the area.
+            cross_product_area = (x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0)
 
-            # Bounding box
-            min_x = max(0, int(min(x0, x1, x2)))
-            max_x = min(pw-1, int(max(x0, x1, x2)))
-            min_y = max(0, int(min(y0, y1, y2)))
-            max_y = min(ph-1, int(max(y0, y1, y2)))
+            # Handle the case of zero-area triangles.
+            if cross_product_area == 0:
+                continue
+
+            # This line was missing! It calculates the inverse area.
+            inv_area = 1.0 / cross_product_area
+
+            # Find the bounding box for the triangle.
+            min_x = max(0, min(x0, x1, x2))
+            max_x = min(pixel_width - 1, max(x0, x1, x2))
+            min_y = max(0, min(y0, y1, y2))
+            max_y = min(pixel_height - 1, max(y0, y1, y2))
+
             if min_x > max_x or min_y > max_y:
                 continue
 
-            # World-space vertices
-            v0, v1, v2 = transformed_verts[i0], transformed_verts[i1], transformed_verts[i2]
+            # Calculate the face normal.
+            v0_world, v1_world, v2_world = (
+                transformed_verts[i0],
+                transformed_verts[i1],
+                transformed_verts[i2],
+            )
+            face_normal = (v1_world - v0_world).cross(v2_world - v0_world).norm()
 
-            # Face normal
-            fn = (v1 - v0).cross(v2 - v0).norm()
-
-            # Average color
-            c0, c1, c2 = mesh.vcols[i0], mesh.vcols[i1], mesh.vcols[i2]
+            # The average color for the triangle.
             avg_color = (
-                (c0[0] + c1[0] + c2[0]) / 3,
-                (c0[1] + c1[1] + c2[1]) / 3,
-                (c0[2] + c1[2] + c2[2]) / 3,
+                (mesh.vcols[i0][0] + mesh.vcols[i1][0] + mesh.vcols[i2][0]) / 3,
+                (mesh.vcols[i0][1] + mesh.vcols[i1][1] + mesh.vcols[i2][1]) / 3,
+                (mesh.vcols[i0][2] + mesh.vcols[i1][2] + mesh.vcols[i2][2]) / 3,
             )
 
-            # Triangle center
-            center = (v0 + v1 + v2) * (1/3)
+            # Determine if the front or back face is visible based on the cross product.
+            is_front_face = cross_product_area > 0
 
-            # Final color
+            # Calculate the final color based on the visible side.
+            tri_center = (v0_world + v1_world + v2_world) * (1 / 3)
+
             if mesh.material == "phong":
-                view_dir = (Vec3(0,0,0) - center).norm()
-                final_color = self._calculate_phong_color(avg_color, fn, view_dir, lights, ambient, center)
-            else:
-                final_color = self._calculate_flat_color(avg_color, fn, center, lights, ambient)
+                view_dir = (Vec3(0, 0, 0) - tri_center).norm()
+                if is_front_face:
+                    final_color = self._calculate_phong_color(
+                        avg_color, face_normal, view_dir, lights, ambient, tri_center
+                    )
+                else:
+                    final_color = self._calculate_phong_color(
+                        avg_color, -face_normal, view_dir, lights, ambient, tri_center
+                    )
+            else:  # 'flat' shading
+                if is_front_face:
+                    final_color = self._calculate_flat_color(
+                        avg_color, face_normal, tri_center, lights, ambient
+                    )
+                else:
+                    final_color = self._calculate_flat_color(
+                        avg_color, -face_normal, tri_center, lights, ambient
+                    )
 
+            # The alpha value is 1 for any pixel that gets rendered.
             rgba = (final_color[0], final_color[1], final_color[2], 1)
 
-            # Edge coefficients
-            A0, B0, C0 = y1 - y2, x2 - x1, x1*y2 - x2*y1
-            A1, B1, C1 = y2 - y0, x0 - x2, x2*y0 - x0*y2
-            A2, B2, C2 = y0 - y1, x1 - x0, x0*y1 - x1*y0
+            # Pre-calculate edge coefficients for incremental rasterization.
+            A0, B0, C0 = edge_coeffs(x1, y1, x2, y2)
+            A1, B1, C1 = edge_coeffs(x2, y2, x0, y0)
+            A2, B2, C2 = edge_coeffs(x0, y0, x1, y1)
 
-            # Start weights
-            w0_row = A0*min_x + B0*min_y + C0
-            w1_row = A1*min_x + B1*min_y + C1
-            w2_row = A2*min_x + B2*min_y + C2
+            # Initial barycentric weights for the top-left corner of the bounding box.
+            w0_row = A0 * min_x + B0 * min_y + C0
+            w1_row = A1 * min_x + B1 * min_y + C1
+            w2_row = A2 * min_x + B2 * min_y + C2
 
+            # Delta values for incremental updates.
             dw0dx, dw1dx, dw2dx = A0, A1, A2
             dw0dy, dw1dy, dw2dy = B0, B1, B2
 
-            for py in range(min_y, max_y+1):
+            for py in range(min_y, max_y + 1):
                 w0, w1, w2 = w0_row, w1_row, w2_row
-                idx = py*pw + min_x
-                for _ in range(min_x, max_x+1):
-                    if (w0 >= 0 and w1 >= 0 and w2 >= 0):
+                base_index = py * pixel_width + min_x
+
+                for px in range(min_x, max_x + 1):
+                    # Check if the pixel is inside the triangle.
+                    if (w0 >= 0 and w1 >= 0 and w2 >= 0) or (
+                        w0 <= 0 and w1 <= 0 and w2 <= 0
+                    ):
+
+                        # Calculate barycentric coordinates.
                         bw0 = w0 * inv_area
                         bw1 = w1 * inv_area
                         bw2 = w2 * inv_area
-                        z = bw0*z0 + bw1*z1 + bw2*z2
-                        if z < depth_buf[idx]:
-                            depth_buf[idx] = z
-                            color_buf[idx] = rgba
+
+                        # Interpolate depth (z-value).
+                        z = bw0 * z0 + bw1 * z1 + bw2 * z2
+
+                        if z < depth_buffer[base_index]:
+                            depth_buffer[base_index] = z
+                            color_buffer[base_index] = rgba
+
+                    # Increment weights for the next pixel.
                     w0 += dw0dx
                     w1 += dw1dx
                     w2 += dw2dx
-                    idx += 1
+                    base_index += 1
+
+                # Increment weights for the next row.
                 w0_row += dw0dy
                 w1_row += dw1dy
                 w2_row += dw2dy
 
-
-    def compose_to_chars(self):
+    # --- Output Composition ---
+    def compose_to_chars(self) -> list[str]:
         """
-        Compose color buffer into terminal characters with half-blocks.
-        Optimized pure Python.
+        High-performance half-block terminal renderer (NumPy-free).
+        Each terminal character represents two pixel rows.
         """
-        lines = []
+        output_lines = []
         cw, ch = self.base_width_chars, self.base_height_chars
-        res = int(self.res_factor)
         pw, ph = self.pixel_width, self.pixel_height
-        buf = self.color_buffer
-        sub_pixels = res*res
+        cf = int(self.res_factor)
+        color_buffer = self.color_buffer
+        sub_pixels = cf * cf
+
+        # Precompute row and column indices to avoid min() in inner loop
+        top_rows = [min(cy*2*cf + sy, ph-1) for cy in range(ch) for sy in range(cf)]
+        bot_rows = [min(cy*2*cf + cf + sy, ph-1) for cy in range(ch) for sy in range(cf)]
+        cols = [min(cx*cf + sx, pw-1) for cx in range(cw) for sx in range(cf)]
 
         for cy in range(ch):
             row_chars = []
-            top_y = cy*2*res
-            bot_y = (cy*2 + 1)*res
+
+            # Compute base offsets for this row
+            top_row_indices = top_rows[cy*cf : (cy+1)*cf]
+            bot_row_indices = bot_rows[cy*cf : (cy+1)*cf]
 
             for cx in range(cw):
-                col_x = cx*res
-                tr=tg=tb=0
-                br=bg=bb=0
+                tr = tg = tb = 0
+                br = bg = bb = 0
 
-                for sy in range(res):
-                    ty = min(top_y + sy, ph-1)
-                    by = min(bot_y + sy, ph-1)
-                    row_t = ty*pw
-                    row_b = by*pw
+                # Compute pixel column indices for this character
+                col_indices = cols[cx*cf : (cx+1)*cf]
 
-                    for sx in range(res):
-                        px = min(col_x + sx, pw-1)
-                        t = buf[row_t + px]
-                        b = buf[row_b + px]
-                        tr+=t[0]; tg+=t[1]; tb+=t[2]
-                        br+=b[0]; bg+=b[1]; bb+=b[2]
+                # Accumulate colors
+                for ty in top_row_indices:
+                    top_offset = ty * pw
+                    for px in col_indices:
+                        r,g,b,_ = color_buffer[top_offset + px]
+                        tr += r; tg += g; tb += b
 
-                top_rgb = (tr//sub_pixels, tg//sub_pixels, tb//sub_pixels)
-                bot_rgb = (br//sub_pixels, bg//sub_pixels, bb//sub_pixels)
-                row_chars.append(fg_rgb(*top_rgb) + bg_rgb(*bot_rgb) + "▀" + RESET)
-            lines.append("".join(row_chars))
-        return lines
+                for by in bot_row_indices:
+                    bot_offset = by * pw
+                    for px in col_indices:
+                        r,g,b,_ = color_buffer[bot_offset + px]
+                        br += r; bg += g; bb += b
+
+                # Average colors
+                top_rgb = (tr // sub_pixels, tg // sub_pixels, tb // sub_pixels)
+                bot_rgb = (br // sub_pixels, bg // sub_pixels, bb // sub_pixels)
+
+                # Compose ANSI half-block character
+                row_chars.append(f"{fg_rgb(*top_rgb)}{bg_rgb(*bot_rgb)}▀{RESET}")
+
+            output_lines.append("".join(row_chars))
+
+        return output_lines

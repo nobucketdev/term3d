@@ -2,7 +2,7 @@ import math
 import uuid
 from typing import Callable, List, Optional
 
-from .math3d import Vec3, Mat4
+from .math3d import Mat4, Vec3
 
 
 class DirectionalLight:
@@ -72,6 +72,7 @@ class PointLight:
 
 # Mesh and Scene classes
 class Mesh:
+
     def __init__(self, verts, faces, colors, material="flat"):
         self.verts = verts
         self.faces = faces
@@ -80,6 +81,9 @@ class Mesh:
         self.pos = Vec3(0, 0, 0)
         self.rot = Vec3(0, 0, 0)
         self.scale = Vec3(1, 1, 1)
+        # Optional attributes, but should be included for slots if they might be set.
+        self.min_v = None
+        self.max_v = None
 
     def move(self, x=0, y=0, z=0):
         self.pos.x += x
@@ -123,6 +127,7 @@ class Camera:
 
 
 class Transform:
+
     def __init__(
         self,
         pos: Optional[Vec3] = None,
@@ -151,6 +156,7 @@ class Transform:
 
 
 class SceneNode:
+
     def __init__(self, name: str = "node"):
         self.id = uuid.uuid4()  # Unique ID for each node
         self.name = name
