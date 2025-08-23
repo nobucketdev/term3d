@@ -2,8 +2,7 @@ import math
 import uuid
 from typing import Callable, List, Optional
 
-from .mat4lib import Mat4
-from .vec3lib import Vec3
+from .math3d import Vec3, Mat4
 
 
 class DirectionalLight:

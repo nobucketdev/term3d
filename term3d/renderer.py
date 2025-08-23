@@ -1,9 +1,9 @@
 from typing import List, Tuple
 
-from .mat4lib import Mat4
+from .math3d import Mat4, Vec3
+
 from .objects import DirectionalLight, PointLight, SpotLight
 from .utils import *
-from .vec3lib import Vec3
 
 # A constant for color normalization, making the code's intent clearer.
 COLOR_SCALE = 1.0 / 255.0
@@ -451,210 +451,142 @@ class Renderer:
                         err += dx
                         y += sy
 
-    def _rasterize_triangles(
-        self, mesh, transformed_verts, projected_verts, lights, ambient
-    ):
+    def _rasterize_triangles(self, mesh, transformed_verts, projected_verts, lights, ambient):
         """
-        Rasterizes each triangle of the mesh using incremental barycentric coordinates.
-        This method fills the color and depth buffers.
+        Rasterizes triangles into color and depth buffers.
+        Fully optimized pure Python version.
         """
         if mesh.material == "wireframe":
             self._draw_wireframe(mesh, projected_verts)
             return
 
-        pixel_width, pixel_height = self.pixel_width, self.pixel_height
-        depth_buffer = self.depth_buffer
-        color_buffer = self.color_buffer
+        pw, ph = self.pixel_width, self.pixel_height
+        depth_buf = self.depth_buffer
+        color_buf = self.color_buffer
 
         for i0, i1, i2 in mesh.faces:
+            # Projected vertices
             x0, y0, z0 = projected_verts[i0]
             x1, y1, z1 = projected_verts[i1]
             x2, y2, z2 = projected_verts[i2]
 
-            # Skip triangles that are too close to the camera (or are clipped).
+            # Skip clipped triangles
             if z0 == float("inf") or z1 == float("inf") or z2 == float("inf"):
                 continue
 
-            # Backface culling: Check if the triangle is facing away from the camera.
-            # Use the sign of the cross product for the area.
-            cross_product_area = (x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0)
-
-            # Handle the case of zero-area triangles.
-            if cross_product_area == 0:
+            # Backface culling
+            area = (x1 - x0)*(y2 - y0) - (y1 - y0)*(x2 - x0)
+            if area == 0:
                 continue
+            inv_area = 1.0 / area
+            if area < 0:
+                continue  # Cull backfaces
 
-            # This line was missing! It calculates the inverse area.
-            inv_area = 1.0 / cross_product_area
-
-            # Find the bounding box for the triangle.
-            min_x = max(0, min(x0, x1, x2))
-            max_x = min(pixel_width - 1, max(x0, x1, x2))
-            min_y = max(0, min(y0, y1, y2))
-            max_y = min(pixel_height - 1, max(y0, y1, y2))
-
+            # Bounding box
+            min_x = max(0, int(min(x0, x1, x2)))
+            max_x = min(pw-1, int(max(x0, x1, x2)))
+            min_y = max(0, int(min(y0, y1, y2)))
+            max_y = min(ph-1, int(max(y0, y1, y2)))
             if min_x > max_x or min_y > max_y:
                 continue
 
-            # Calculate the face normal.
-            v0_world, v1_world, v2_world = (
-                transformed_verts[i0],
-                transformed_verts[i1],
-                transformed_verts[i2],
-            )
-            face_normal = (v1_world - v0_world).cross(v2_world - v0_world).norm()
+            # World-space vertices
+            v0, v1, v2 = transformed_verts[i0], transformed_verts[i1], transformed_verts[i2]
 
-            # The average color for the triangle.
+            # Face normal
+            fn = (v1 - v0).cross(v2 - v0).norm()
+
+            # Average color
+            c0, c1, c2 = mesh.vcols[i0], mesh.vcols[i1], mesh.vcols[i2]
             avg_color = (
-                (mesh.vcols[i0][0] + mesh.vcols[i1][0] + mesh.vcols[i2][0]) / 3,
-                (mesh.vcols[i0][1] + mesh.vcols[i1][1] + mesh.vcols[i2][1]) / 3,
-                (mesh.vcols[i0][2] + mesh.vcols[i1][2] + mesh.vcols[i2][2]) / 3,
+                (c0[0] + c1[0] + c2[0]) / 3,
+                (c0[1] + c1[1] + c2[1]) / 3,
+                (c0[2] + c1[2] + c2[2]) / 3,
             )
 
-            # Determine if the front or back face is visible based on the cross product.
-            is_front_face = cross_product_area > 0
+            # Triangle center
+            center = (v0 + v1 + v2) * (1/3)
 
-            # Calculate the final color based on the visible side.
-            tri_center = (v0_world + v1_world + v2_world) * (1 / 3)
-
+            # Final color
             if mesh.material == "phong":
-                view_dir = (Vec3(0, 0, 0) - tri_center).norm()
-                if is_front_face:
-                    final_color = self._calculate_phong_color(
-                        avg_color, face_normal, view_dir, lights, ambient, tri_center
-                    )
-                else:
-                    final_color = self._calculate_phong_color(
-                        avg_color, -face_normal, view_dir, lights, ambient, tri_center
-                    )
-            else:  # 'flat' shading
-                if is_front_face:
-                    final_color = self._calculate_flat_color(
-                        avg_color, face_normal, tri_center, lights, ambient
-                    )
-                else:
-                    final_color = self._calculate_flat_color(
-                        avg_color, -face_normal, tri_center, lights, ambient
-                    )
+                view_dir = (Vec3(0,0,0) - center).norm()
+                final_color = self._calculate_phong_color(avg_color, fn, view_dir, lights, ambient, center)
+            else:
+                final_color = self._calculate_flat_color(avg_color, fn, center, lights, ambient)
 
-            # The alpha value is 1 for any pixel that gets rendered.
             rgba = (final_color[0], final_color[1], final_color[2], 1)
 
-            # Pre-calculate edge coefficients for incremental rasterization.
-            A0, B0, C0 = edge_coeffs(x1, y1, x2, y2)
-            A1, B1, C1 = edge_coeffs(x2, y2, x0, y0)
-            A2, B2, C2 = edge_coeffs(x0, y0, x1, y1)
+            # Edge coefficients
+            A0, B0, C0 = y1 - y2, x2 - x1, x1*y2 - x2*y1
+            A1, B1, C1 = y2 - y0, x0 - x2, x2*y0 - x0*y2
+            A2, B2, C2 = y0 - y1, x1 - x0, x0*y1 - x1*y0
 
-            # Initial barycentric weights for the top-left corner of the bounding box.
-            w0_row = A0 * min_x + B0 * min_y + C0
-            w1_row = A1 * min_x + B1 * min_y + C1
-            w2_row = A2 * min_x + B2 * min_y + C2
+            # Start weights
+            w0_row = A0*min_x + B0*min_y + C0
+            w1_row = A1*min_x + B1*min_y + C1
+            w2_row = A2*min_x + B2*min_y + C2
 
-            # Delta values for incremental updates.
             dw0dx, dw1dx, dw2dx = A0, A1, A2
             dw0dy, dw1dy, dw2dy = B0, B1, B2
 
-            for py in range(min_y, max_y + 1):
+            for py in range(min_y, max_y+1):
                 w0, w1, w2 = w0_row, w1_row, w2_row
-                base_index = py * pixel_width + min_x
-
-                for px in range(min_x, max_x + 1):
-                    # Check if the pixel is inside the triangle.
-                    if (w0 >= 0 and w1 >= 0 and w2 >= 0) or (
-                        w0 <= 0 and w1 <= 0 and w2 <= 0
-                    ):
-
-                        # Calculate barycentric coordinates.
+                idx = py*pw + min_x
+                for _ in range(min_x, max_x+1):
+                    if (w0 >= 0 and w1 >= 0 and w2 >= 0):
                         bw0 = w0 * inv_area
                         bw1 = w1 * inv_area
                         bw2 = w2 * inv_area
-
-                        # Interpolate depth (z-value).
-                        z = bw0 * z0 + bw1 * z1 + bw2 * z2
-
-                        if z < depth_buffer[base_index]:
-                            depth_buffer[base_index] = z
-                            color_buffer[base_index] = rgba
-
-                    # Increment weights for the next pixel.
+                        z = bw0*z0 + bw1*z1 + bw2*z2
+                        if z < depth_buf[idx]:
+                            depth_buf[idx] = z
+                            color_buf[idx] = rgba
                     w0 += dw0dx
                     w1 += dw1dx
                     w2 += dw2dx
-                    base_index += 1
-
-                # Increment weights for the next row.
+                    idx += 1
                 w0_row += dw0dy
                 w1_row += dw1dy
                 w2_row += dw2dy
 
-    # --- Output Composition ---
-    def compose_to_chars(self) -> List[str]:
-        """
-        Composes the pixel buffers into a list of terminal characters.
-        This uses half-block rendering, where each character represents a
-        top and bottom pixel, effectively doubling the vertical resolution.
-        """
-        output_lines = []
-        char_width, char_height = self.base_width_chars, self.base_height_chars
-        res_factor = self.res_factor
-        pixel_width, pixel_height = self.pixel_width, self.pixel_height
-        color_buffer = self.color_buffer
 
-        # The number of sub-pixels per character cell depends on the resolution factor.
-        sub_pixels_per_char = int(res_factor * res_factor)
+    def compose_to_chars(self):
+        """
+        Compose color buffer into terminal characters with half-blocks.
+        Optimized pure Python.
+        """
+        lines = []
+        cw, ch = self.base_width_chars, self.base_height_chars
+        res = int(self.res_factor)
+        pw, ph = self.pixel_width, self.pixel_height
+        buf = self.color_buffer
+        sub_pixels = res*res
 
-        for cy in range(char_height):
+        for cy in range(ch):
             row_chars = []
+            top_y = cy*2*res
+            bot_y = (cy*2 + 1)*res
 
-            # Determine the pixel rows corresponding to the top and bottom of the character.
-            top_y_base = int(cy * 2 * res_factor)
-            bot_y_base = int((cy * 2 + 1) * res_factor)
+            for cx in range(cw):
+                col_x = cx*res
+                tr=tg=tb=0
+                br=bg=bb=0
 
-            for cx in range(char_width):
-                col_base = int(cx * res_factor)
+                for sy in range(res):
+                    ty = min(top_y + sy, ph-1)
+                    by = min(bot_y + sy, ph-1)
+                    row_t = ty*pw
+                    row_b = by*pw
 
-                # Initialize sums for averaging top and bottom sub-pixel colors.
-                tr_sum, tg_sum, tb_sum = 0, 0, 0
-                br_sum, bg_sum, bb_sum = 0, 0, 0
+                    for sx in range(res):
+                        px = min(col_x + sx, pw-1)
+                        t = buf[row_t + px]
+                        b = buf[row_b + px]
+                        tr+=t[0]; tg+=t[1]; tb+=t[2]
+                        br+=b[0]; bg+=b[1]; bb+=b[2]
 
-                for sy in range(int(res_factor)):
-                    ty = min(top_y_base + sy, pixel_height - 1)
-                    by = min(bot_y_base + sy, pixel_height - 1)
-
-                    row_offset_t = ty * pixel_width
-                    row_offset_b = by * pixel_width
-
-                    for sx in range(int(res_factor)):
-                        px = min(col_base + sx, pixel_width - 1)
-
-                        # Get pixel colors from the buffer.
-                        top_pixel_color = color_buffer[row_offset_t + px]
-                        bot_pixel_color = color_buffer[row_offset_b + px]
-
-                        # Accumulate color sums for averaging.
-                        tr_sum += top_pixel_color[0]
-                        tg_sum += top_pixel_color[1]
-                        tb_sum += top_pixel_color[2]
-
-                        br_sum += bot_pixel_color[0]
-                        bg_sum += bot_pixel_color[1]
-                        bb_sum += bot_pixel_color[2]
-
-                # Calculate the average color for the top and bottom halves.
-                top_rgb = (
-                    tr_sum // sub_pixels_per_char,
-                    tg_sum // sub_pixels_per_char,
-                    tb_sum // sub_pixels_per_char,
-                )
-                bot_rgb = (
-                    br_sum // sub_pixels_per_char,
-                    bg_sum // sub_pixels_per_char,
-                    bb_sum // sub_pixels_per_char,
-                )
-
-                # Use ANSI escape codes to set the foreground and background colors.
-                # The '▀' character (upper half block) is then colored with these.
+                top_rgb = (tr//sub_pixels, tg//sub_pixels, tb//sub_pixels)
+                bot_rgb = (br//sub_pixels, bg//sub_pixels, bb//sub_pixels)
                 row_chars.append(fg_rgb(*top_rgb) + bg_rgb(*bot_rgb) + "▀" + RESET)
-
-            output_lines.append("".join(row_chars))
-
-        return output_lines
+            lines.append("".join(row_chars))
+        return lines

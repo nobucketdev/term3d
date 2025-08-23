@@ -105,8 +105,8 @@ def main():
         engine.set_on_update(update_scene)
 
         # Add keybindings for camera control
-        engine.set_key_binding("w", lambda: engine.move_camera(z=-1))
-        engine.set_key_binding("s", lambda: engine.move_camera(z=1))
+        engine.set_key_binding("w", lambda: engine.move_camera(z=1))
+        engine.set_key_binding("s", lambda: engine.move_camera(z=-1))
         engine.set_key_binding("a", lambda: engine.move_camera(x=-1))
         engine.set_key_binding("d", lambda: engine.move_camera(x=1))
         engine.set_key_binding("q", lambda: engine.rotate_camera(y=-0.1))
