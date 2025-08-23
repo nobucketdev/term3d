@@ -1,0 +1,126 @@
+name: 🐞 Bug Report
+description: File a bug report to help us improve the project
+title: "[BUG] <short description>"
+labels: [bug]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug 🙏  
+        Please fill out the details below as completely as possible.  
+        This helps us reproduce and fix the issue faster.  
+
+  - type: input
+    id: summary
+    attributes:
+      label: 🔎 Bug Summary
+      description: Provide a clear, one-sentence summary of the bug.
+      placeholder: "App crashes when clicking 'Save' on Settings page"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 🐞 Detailed Description
+      description: A more detailed explanation of the bug.
+      placeholder: "When I try to save settings, the app freezes and logs an error..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: ✅ Steps to Reproduce
+      description: Step-by-step instructions to reproduce the behavior.
+      placeholder: |
+        1. Open the app
+        2. Navigate to Settings
+        3. Click 'Save'
+        4. Observe freeze/crash
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 🤔 Expected Behavior
+      description: What you expected to happen instead.
+      placeholder: "The app should save settings and return to the dashboard."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 💥 Actual Behavior
+      description: What actually happens, including error messages if any.
+      placeholder: "The app freezes and throws 'NullReferenceException' in logs."
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 📷 Screenshots or Logs
+      description: Upload screenshots or copy-paste error logs that show the issue.
+      placeholder: "Paste logs here or drag & drop screenshots."
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: ⚠️ Severity
+      description: How badly does this bug affect you?
+      options:
+        - "🟢 Minor – cosmetic issue, no impact on functionality"
+        - "🟡 Moderate – affects some features but has a workaround"
+        - "🔴 Major – breaks core functionality, no workaround"
+        - "🔥 Critical – prevents any use of the project"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 🖥️ Environment
+      description: Describe your environment (OS, browser, runtime, versions).
+      placeholder: "Windows 11, Python 3.11.5, Project v2.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 📌 Affected Version
+      description: Which version of the project are you using?
+      placeholder: "e.g., 2.0.0"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: reproducibility
+    attributes:
+      label: 🔄 Reproducibility
+      description: How often does this bug occur?
+      options:
+        - label: "Always"
+        - label: "Often"
+        - label: "Sometimes"
+        - label: "Rarely"
+        - label: "Only once"
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: 🛠️ Workarounds
+      description: Do you have a temporary fix or workaround?
+      placeholder: "Restarting the app fixes the issue temporarily."
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 📌 Additional Context
+      description: Any other context or info that could help us investigate.
+      placeholder: "This happens only when network connection is slow."
