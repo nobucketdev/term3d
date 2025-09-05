@@ -2,8 +2,7 @@ import math
 import uuid
 from typing import Callable, List, Optional
 
-from .mat4lib import Mat4
-from .vec3lib import Vec3
+from .math3d import Mat4, Vec3
 
 
 class DirectionalLight:
@@ -73,6 +72,7 @@ class PointLight:
 
 # Mesh and Scene classes
 class Mesh:
+
     def __init__(self, verts, faces, colors, material="flat"):
         self.verts = verts
         self.faces = faces
@@ -81,6 +81,9 @@ class Mesh:
         self.pos = Vec3(0, 0, 0)
         self.rot = Vec3(0, 0, 0)
         self.scale = Vec3(1, 1, 1)
+        # Optional attributes, but should be included for slots if they might be set.
+        self.min_v = None
+        self.max_v = None
 
     def move(self, x=0, y=0, z=0):
         self.pos.x += x
@@ -93,17 +96,32 @@ class Mesh:
         self.rot.z += z
 
     def calculate_bounds(self):
-        """Calculates the axis-aligned bounding box (AABB) for the mesh."""
+        """
+        Calculates the axis-aligned bounding box (AABB) for the mesh.
+        ✅ Optimized
+        """
         if not self.verts:
             return
 
-        min_x = min(v.x for v in self.verts)
-        min_y = min(v.y for v in self.verts)
-        min_z = min(v.z for v in self.verts)
+        first = self.verts[0]
+        min_x = max_x = first.x
+        min_y = max_y = first.y
+        min_z = max_z = first.z
 
-        max_x = max(v.x for v in self.verts)
-        max_y = max(v.y for v in self.verts)
-        max_z = max(v.z for v in self.verts)
+        for v in self.verts[1:]:
+            x, y, z = v.x, v.y, v.z
+            if x < min_x:
+                min_x = x
+            elif x > max_x:
+                max_x = x
+            if y < min_y:
+                min_y = y
+            elif y > max_y:
+                max_y = y
+            if z < min_z:
+                min_z = z
+            elif z > max_z:
+                max_z = z
 
         self.min_v = Vec3(min_x, min_y, min_z)
         self.max_v = Vec3(max_x, max_y, max_z)
@@ -124,6 +142,7 @@ class Camera:
 
 
 class Transform:
+
     def __init__(
         self,
         pos: Optional[Vec3] = None,
@@ -152,6 +171,7 @@ class Transform:
 
 
 class SceneNode:
+
     def __init__(self, name: str = "node"):
         self.id = uuid.uuid4()  # Unique ID for each node
         self.name = name

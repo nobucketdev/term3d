@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      issues: write  # needed to add labels
+      issues: write
 
     steps:
       - name: Checkout code
@@ -36,7 +36,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "style: auto-format with black & isort"
-          skip_fetch: true
+          branch: ${{ github.head_ref || github.ref_name }}
 
       - name: Add PR comment
         if: github.event_name == 'pull_request'
@@ -49,4 +49,4 @@ jobs:
         uses: actions-ecosystem/action-add-labels@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          labels: auto-formatted
+          labels: "bot: formatted"

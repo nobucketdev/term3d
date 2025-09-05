@@ -1,9 +1,8 @@
 from typing import List, Tuple
 
-from .mat4lib import Mat4
+from .math3d import Mat4, Vec3
 from .objects import DirectionalLight, PointLight, SpotLight
 from .utils import *
-from .vec3lib import Vec3
 
 # A constant for color normalization, making the code's intent clearer.
 COLOR_SCALE = 1.0 / 255.0
@@ -280,69 +279,72 @@ class Renderer:
         base_color: Tuple[int, int, int],
         normal: Vec3,
         frag_pos: Vec3,
-        lights: List,
+        lights: list,
         ambient_light: Tuple[float, float, float],
     ) -> Tuple[int, int, int]:
-        """Flat shading: ambient + diffuse, supporting directional and spot lights."""
+        """Optimized flat shading: ambient + diffuse."""
         br, bg, bb = base_color
         ar, ag, ab = ambient_light
         nx, ny, nz = normal.x, normal.y, normal.z
 
-        # Start with ambient contribution
+        # Start with ambient
         total_r = br * ar
         total_g = bg * ag
         total_b = bb * ab
 
         for ltype, ldata, lcolor, lintensity in lights:
+            lr, lg, lb = lcolor
+
             if ltype == "directional":
                 light_dir = -ldata
-                intensity = (
-                    max(nx * light_dir.x + ny * light_dir.y + nz * light_dir.z, 0.0)
-                    * lintensity
-                )
-                spot_factor = 1.0
-                dist_factor = 1.0
+                diff = nx * light_dir.x + ny * light_dir.y + nz * light_dir.z
+                if diff <= 0.0:
+                    continue
+                factor = diff * lintensity
             elif ltype == "spot":
-                spotlight = ldata
-                L = (spotlight.position - frag_pos).norm()
+                L = (ldata.position - frag_pos).norm()
                 diff = max(normal.dot(L), 0.0)
-                spot_factor = spotlight.cone_factor(frag_pos)
-                dist_factor = spotlight.attenuation(frag_pos)
-                intensity = diff * lintensity * spot_factor * dist_factor
+                if diff <= 0.0:
+                    continue
+                factor = (
+                    diff
+                    * lintensity
+                    * ldata.cone_factor(frag_pos)
+                    * ldata.attenuation(frag_pos)
+                )
             elif ltype == "point":
-                pointlight = ldata
-                light_vec = (pointlight.position - frag_pos).norm()
-                diff = max(normal.dot(light_vec), 0.0)
-                dist_factor = pointlight.attenuation(frag_pos)
-                intensity = diff * lintensity * dist_factor
-                spot_factor = 1.0  # Point lights have no cone factor
+                L = (ldata.position - frag_pos).norm()
+                diff = max(normal.dot(L), 0.0)
+                if diff <= 0.0:
+                    continue
+                factor = diff * lintensity * ldata.attenuation(frag_pos)
             else:
                 continue
 
-            lr, lg, lb = lcolor
-            total_r += br * lr * intensity
-            total_g += bg * lg * intensity
-            total_b += bb * lb * intensity
+            # Diffuse contribution
+            total_r += br * lr * factor
+            total_g += bg * lg * factor
+            total_b += bb * lb * factor
 
-        final_r = clamp(int(total_r), 0, 255)
-        final_g = clamp(int(total_g), 0, 255)
-        final_b = clamp(int(total_b), 0, 255)
-        return final_r, final_g, final_b
+        return (
+            clamp(int(total_r), 0, 255),
+            clamp(int(total_g), 0, 255),
+            clamp(int(total_b), 0, 255),
+        )
 
     def _calculate_phong_color(
         self,
         base_color: Tuple[int, int, int],
         normal: Vec3,
         view_dir: Vec3,
-        lights: List,
+        lights: list,
         ambient_light: Tuple[float, float, float],
         frag_pos: Vec3,
     ) -> Tuple[int, int, int]:
-        """Phong shading: ambient + diffuse + specular, supporting directional and spot lights."""
+        """Optimized Phong shading: ambient + diffuse + specular."""
         br, bg, bb = base_color
         ar, ag, ab = ambient_light
 
-        # Phong parameters
         specular_strength = 0.5
         shininess = 32
 
@@ -352,69 +354,58 @@ class Renderer:
         total_b = bb * ab
 
         for ltype, ldata, lcolor, lintensity in lights:
+            lr, lg, lb = lcolor
+
+            # Compute light vector and factors
             if ltype == "directional":
-                light_vec = -ldata.norm()
-                diff = max(normal.dot(light_vec), 0.0)
+                light_vec = -ldata
+                light_vec_norm = light_vec.norm()
+                diff = max(normal.dot(light_vec_norm), 0.0)
                 spot_factor = 1.0
                 dist_factor = 1.0
             elif ltype == "spot":
-                spotlight = ldata
-                L = (spotlight.position - frag_pos).norm()
-                light_vec = L
+                L = (ldata.position - frag_pos).norm()
+                light_vec_norm = L
                 diff = max(normal.dot(L), 0.0)
-                spot_factor = spotlight.cone_factor(frag_pos)
-                dist_factor = spotlight.attenuation(frag_pos)
+                spot_factor = ldata.cone_factor(frag_pos)
+                dist_factor = ldata.attenuation(frag_pos)
             elif ltype == "point":
-                pointlight = ldata
-                light_vec = (pointlight.position - frag_pos).norm()
-                diff = max(normal.dot(light_vec), 0.0)
-                dist_factor = pointlight.attenuation(frag_pos)
-                intensity = diff * lintensity * dist_factor
-                spot_factor = 1.0  # Point lights have no cone factor
+                L = (ldata.position - frag_pos).norm()
+                light_vec_norm = L
+                diff = max(normal.dot(L), 0.0)
+                dist_factor = ldata.attenuation(frag_pos)
+                spot_factor = 1.0
             else:
                 continue
 
-            lr, lg, lb = lcolor
-            # Diffuse
-            total_r += br * lr * diff * lintensity * spot_factor * dist_factor
-            total_g += bg * lg * diff * lintensity * spot_factor * dist_factor
-            total_b += bb * lb * diff * lintensity * spot_factor * dist_factor
+            if diff <= 0.0:
+                continue  # skip lights that don't contribute
+
+            # Combined factor
+            factor = diff * lintensity * spot_factor * dist_factor
+
+            # Diffuse contribution
+            total_r += br * lr * factor
+            total_g += bg * lg * factor
+            total_b += bb * lb * factor
 
             # Specular
-            reflect_dir = (normal * 2 * normal.dot(light_vec) - light_vec).norm()
+            dot_nl = normal.dot(light_vec_norm)
+            reflect_dir = (normal * 2 * dot_nl - light_vec_norm).norm()
             spec = max(view_dir.dot(reflect_dir), 0.0) ** shininess
-            total_r += (
-                255
-                * lr
-                * specular_strength
-                * spec
-                * lintensity
-                * spot_factor
-                * dist_factor
-            )
-            total_g += (
-                255
-                * lg
-                * specular_strength
-                * spec
-                * lintensity
-                * spot_factor
-                * dist_factor
-            )
-            total_b += (
-                255
-                * lb
-                * specular_strength
-                * spec
-                * lintensity
-                * spot_factor
-                * dist_factor
+            spec_factor = (
+                255 * specular_strength * spec * lintensity * spot_factor * dist_factor
             )
 
-        final_r = clamp(int(total_r), 0, 255)
-        final_g = clamp(int(total_g), 0, 255)
-        final_b = clamp(int(total_b), 0, 255)
-        return final_r, final_g, final_b
+            total_r += lr * spec_factor
+            total_g += lg * spec_factor
+            total_b += lb * spec_factor
+
+        return (
+            clamp(int(total_r), 0, 255),
+            clamp(int(total_g), 0, 255),
+            clamp(int(total_b), 0, 255),
+        )
 
     def _draw_wireframe(self, mesh, projected_verts, color=(255, 255, 255)):
         """Draws triangle edges as lines (Bresenham) with depth check."""
@@ -454,10 +445,6 @@ class Renderer:
     def _rasterize_triangles(
         self, mesh, transformed_verts, projected_verts, lights, ambient
     ):
-        """
-        Rasterizes each triangle of the mesh using incremental barycentric coordinates.
-        This method fills the color and depth buffers.
-        """
         if mesh.material == "wireframe":
             self._draw_wireframe(mesh, projected_verts)
             return
@@ -587,73 +574,64 @@ class Renderer:
                 w2_row += dw2dy
 
     # --- Output Composition ---
-    def compose_to_chars(self) -> List[str]:
+    def compose_to_chars(self) -> list[str]:
         """
-        Composes the pixel buffers into a list of terminal characters.
-        This uses half-block rendering, where each character represents a
-        top and bottom pixel, effectively doubling the vertical resolution.
+        High-performance half-block terminal renderer (NumPy-free).
+        Each terminal character represents two pixel rows.
         """
         output_lines = []
-        char_width, char_height = self.base_width_chars, self.base_height_chars
-        res_factor = self.res_factor
-        pixel_width, pixel_height = self.pixel_width, self.pixel_height
+        cw, ch = self.base_width_chars, self.base_height_chars
+        pw, ph = self.pixel_width, self.pixel_height
+        cf = int(self.res_factor)
         color_buffer = self.color_buffer
+        sub_pixels = cf * cf
 
-        # The number of sub-pixels per character cell depends on the resolution factor.
-        sub_pixels_per_char = int(res_factor * res_factor)
+        # Precompute row and column indices to avoid min() in inner loop
+        top_rows = [
+            min(cy * 2 * cf + sy, ph - 1) for cy in range(ch) for sy in range(cf)
+        ]
+        bot_rows = [
+            min(cy * 2 * cf + cf + sy, ph - 1) for cy in range(ch) for sy in range(cf)
+        ]
+        cols = [min(cx * cf + sx, pw - 1) for cx in range(cw) for sx in range(cf)]
 
-        for cy in range(char_height):
+        for cy in range(ch):
             row_chars = []
 
-            # Determine the pixel rows corresponding to the top and bottom of the character.
-            top_y_base = int(cy * 2 * res_factor)
-            bot_y_base = int((cy * 2 + 1) * res_factor)
+            # Compute base offsets for this row
+            top_row_indices = top_rows[cy * cf : (cy + 1) * cf]
+            bot_row_indices = bot_rows[cy * cf : (cy + 1) * cf]
 
-            for cx in range(char_width):
-                col_base = int(cx * res_factor)
+            for cx in range(cw):
+                tr = tg = tb = 0
+                br = bg = bb = 0
 
-                # Initialize sums for averaging top and bottom sub-pixel colors.
-                tr_sum, tg_sum, tb_sum = 0, 0, 0
-                br_sum, bg_sum, bb_sum = 0, 0, 0
+                # Compute pixel column indices for this character
+                col_indices = cols[cx * cf : (cx + 1) * cf]
 
-                for sy in range(int(res_factor)):
-                    ty = min(top_y_base + sy, pixel_height - 1)
-                    by = min(bot_y_base + sy, pixel_height - 1)
+                # Accumulate colors
+                for ty in top_row_indices:
+                    top_offset = ty * pw
+                    for px in col_indices:
+                        r, g, b, _ = color_buffer[top_offset + px]
+                        tr += r
+                        tg += g
+                        tb += b
 
-                    row_offset_t = ty * pixel_width
-                    row_offset_b = by * pixel_width
+                for by in bot_row_indices:
+                    bot_offset = by * pw
+                    for px in col_indices:
+                        r, g, b, _ = color_buffer[bot_offset + px]
+                        br += r
+                        bg += g
+                        bb += b
 
-                    for sx in range(int(res_factor)):
-                        px = min(col_base + sx, pixel_width - 1)
+                # Average colors
+                top_rgb = (tr // sub_pixels, tg // sub_pixels, tb // sub_pixels)
+                bot_rgb = (br // sub_pixels, bg // sub_pixels, bb // sub_pixels)
 
-                        # Get pixel colors from the buffer.
-                        top_pixel_color = color_buffer[row_offset_t + px]
-                        bot_pixel_color = color_buffer[row_offset_b + px]
-
-                        # Accumulate color sums for averaging.
-                        tr_sum += top_pixel_color[0]
-                        tg_sum += top_pixel_color[1]
-                        tb_sum += top_pixel_color[2]
-
-                        br_sum += bot_pixel_color[0]
-                        bg_sum += bot_pixel_color[1]
-                        bb_sum += bot_pixel_color[2]
-
-                # Calculate the average color for the top and bottom halves.
-                top_rgb = (
-                    tr_sum // sub_pixels_per_char,
-                    tg_sum // sub_pixels_per_char,
-                    tb_sum // sub_pixels_per_char,
-                )
-                bot_rgb = (
-                    br_sum // sub_pixels_per_char,
-                    bg_sum // sub_pixels_per_char,
-                    bb_sum // sub_pixels_per_char,
-                )
-
-                # Use ANSI escape codes to set the foreground and background colors.
-                # The '▀' character (upper half block) is then colored with these.
-                row_chars.append(fg_rgb(*top_rgb) + bg_rgb(*bot_rgb) + "▀" + RESET)
+                # Compose ANSI half-block character
+                row_chars.append(f"{fg_rgb(*top_rgb)}{bg_rgb(*bot_rgb)}▀{RESET}")
 
             output_lines.append("".join(row_chars))
 

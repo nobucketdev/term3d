@@ -1,6 +1,6 @@
 import math
 
-from .vec3lib import Vec3
+from .math3d import Vec3
 
 
 # Clamp helper

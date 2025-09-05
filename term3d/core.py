@@ -9,11 +9,11 @@ import time
 from typing import Callable, List, Optional
 
 from .__init__ import __version__
+from .math3d import Vec3
 from .objects import *
 from .renderer import Renderer
 from .shpbuild import *
 from .utils import *
-from .vec3lib import Vec3
 
 print(f"Term3D by baod[nobucketdev] - Version {__version__}")
 

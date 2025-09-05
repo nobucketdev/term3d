@@ -10,3 +10,4 @@
 *.h text eol=lf
 *.hpp text eol=lf
 *.bat text eol=crlf
+*.obj filter=lfs diff=lfs merge=lfs -text
