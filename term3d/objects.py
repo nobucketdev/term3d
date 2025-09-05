@@ -96,21 +96,29 @@ class Mesh:
         self.rot.z += z
 
     def calculate_bounds(self):
-        """Calculates the axis-aligned bounding box (AABB) for the mesh."""
+        """
+        Calculates the axis-aligned bounding box (AABB) for the mesh.
+        ✅ Optimized
+        """
         if not self.verts:
             return
 
-        min_x = min(v.x for v in self.verts)
-        min_y = min(v.y for v in self.verts)
-        min_z = min(v.z for v in self.verts)
+        first = self.verts[0]
+        min_x = max_x = first.x
+        min_y = max_y = first.y
+        min_z = max_z = first.z
 
-        max_x = max(v.x for v in self.verts)
-        max_y = max(v.y for v in self.verts)
-        max_z = max(v.z for v in self.verts)
+        for v in self.verts[1:]:
+            x, y, z = v.x, v.y, v.z
+            if x < min_x: min_x = x
+            elif x > max_x: max_x = x
+            if y < min_y: min_y = y
+            elif y > max_y: max_y = y
+            if z < min_z: min_z = z
+            elif z > max_z: max_z = z
 
         self.min_v = Vec3(min_x, min_y, min_z)
         self.max_v = Vec3(max_x, max_y, max_z)
-
 
 class Camera:
     """
