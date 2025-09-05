@@ -1,5 +1,5 @@
 from typing import List, Tuple
-
+from numba import njit
 from .math3d import Mat4, Vec3
 from .objects import DirectionalLight, PointLight, SpotLight
 from .utils import *
@@ -7,20 +7,42 @@ from .utils import *
 # A constant for color normalization, making the code's intent clearer.
 COLOR_SCALE = 1.0 / 255.0
 
-
-def edge_coeffs(
-    x0: float, y0: float, x1: float, y1: float
-) -> Tuple[float, float, float]:
-    """
-    Calculates the coefficients A, B, and C for a 2D line equation (Ax + By + C = 0)
-    that passes through two given points (x0, y0) and (x1, y1).
-    These coefficients are used for the barycentric coordinate calculation in rasterization.
-    """
+@njit
+def edge_coeffs(x0: float, y0: float, x1: float, y1: float) -> Tuple[float, float, float]:
     A = y0 - y1
     B = x1 - x0
     C = x0 * y1 - y0 * x1
     return A, B, C
 
+@njit(parallel=True)
+def triangle_bbox(x0, y0, x1, y1, x2, y2, pixel_width, pixel_height):
+    # min_x
+    min_x = x0
+    if x1 < min_x: min_x = x1
+    if x2 < min_x: min_x = x2
+    if min_x < 0: min_x = 0
+
+    # max_x
+    max_x = x0
+    if x1 > max_x: max_x = x1
+    if x2 > max_x: max_x = x2
+    if max_x >= pixel_width: max_x = pixel_width - 1
+
+    # min_y
+    min_y = y0
+    if y1 < min_y: min_y = y1
+    if y2 < min_y: min_y = y2
+    if min_y < 0: min_y = 0
+
+    # max_y
+    max_y = y0
+    if y1 > max_y: max_y = y1
+    if y2 > max_y: max_y = y2
+    if max_y >= pixel_height: max_y = pixel_height - 1
+
+    if min_x > max_x or min_y > max_y:
+        return -1, -1, -1, -1  # fully outside screen
+    return min_x, max_x, min_y, max_y
 
 class Renderer:
     """
@@ -458,31 +480,25 @@ class Renderer:
             x1, y1, z1 = projected_verts[i1]
             x2, y2, z2 = projected_verts[i2]
 
-            # Skip triangles that are too close to the camera (or are clipped).
+            # Skip triangles clipped or behind camera
             if z0 == float("inf") or z1 == float("inf") or z2 == float("inf"):
                 continue
 
-            # Backface culling: Check if the triangle is facing away from the camera.
-            # Use the sign of the cross product for the area.
+            # Backface culling
             cross_product_area = (x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0)
-
-            # Handle the case of zero-area triangles.
             if cross_product_area == 0:
                 continue
-
-            # This line was missing! It calculates the inverse area.
             inv_area = 1.0 / cross_product_area
 
-            # Find the bounding box for the triangle.
-            min_x = max(0, min(x0, x1, x2))
-            max_x = min(pixel_width - 1, max(x0, x1, x2))
-            min_y = max(0, min(y0, y1, y2))
-            max_y = min(pixel_height - 1, max(y0, y1, y2))
+            min_x, max_x, min_y, max_y = triangle_bbox(x0, y0, x1, y1, x2, y2, pixel_width, pixel_height)
+
+            if min_x == -1:
+                continue
 
             if min_x > max_x or min_y > max_y:
                 continue
 
-            # Calculate the face normal.
+            # Compute face normal
             v0_world, v1_world, v2_world = (
                 transformed_verts[i0],
                 transformed_verts[i1],
@@ -490,19 +506,18 @@ class Renderer:
             )
             face_normal = (v1_world - v0_world).cross(v2_world - v0_world).norm()
 
-            # The average color for the triangle.
+            # Average vertex color
             avg_color = (
                 (mesh.vcols[i0][0] + mesh.vcols[i1][0] + mesh.vcols[i2][0]) / 3,
                 (mesh.vcols[i0][1] + mesh.vcols[i1][1] + mesh.vcols[i2][1]) / 3,
                 (mesh.vcols[i0][2] + mesh.vcols[i1][2] + mesh.vcols[i2][2]) / 3,
             )
 
-            # Determine if the front or back face is visible based on the cross product.
+            # Determine front/back face
             is_front_face = cross_product_area > 0
-
-            # Calculate the final color based on the visible side.
             tri_center = (v0_world + v1_world + v2_world) * (1 / 3)
 
+            # Shading
             if mesh.material == "phong":
                 view_dir = (Vec3(0, 0, 0) - tri_center).norm()
                 if is_front_face:
@@ -513,7 +528,7 @@ class Renderer:
                     final_color = self._calculate_phong_color(
                         avg_color, -face_normal, view_dir, lights, ambient, tri_center
                     )
-            else:  # 'flat' shading
+            else:  # 'flat'
                 if is_front_face:
                     final_color = self._calculate_flat_color(
                         avg_color, face_normal, tri_center, lights, ambient
@@ -523,52 +538,43 @@ class Renderer:
                         avg_color, -face_normal, tri_center, lights, ambient
                     )
 
-            # The alpha value is 1 for any pixel that gets rendered.
             rgba = (final_color[0], final_color[1], final_color[2], 1)
 
-            # Pre-calculate edge coefficients for incremental rasterization.
+            # Edge coefficients
             A0, B0, C0 = edge_coeffs(x1, y1, x2, y2)
             A1, B1, C1 = edge_coeffs(x2, y2, x0, y0)
             A2, B2, C2 = edge_coeffs(x0, y0, x1, y1)
 
-            # Initial barycentric weights for the top-left corner of the bounding box.
+            # Initial barycentric weights at top-left corner
             w0_row = A0 * min_x + B0 * min_y + C0
             w1_row = A1 * min_x + B1 * min_y + C1
             w2_row = A2 * min_x + B2 * min_y + C2
 
-            # Delta values for incremental updates.
             dw0dx, dw1dx, dw2dx = A0, A1, A2
             dw0dy, dw1dy, dw2dy = B0, B1, B2
 
+            # Rasterize
             for py in range(min_y, max_y + 1):
                 w0, w1, w2 = w0_row, w1_row, w2_row
                 base_index = py * pixel_width + min_x
 
-                for px in range(min_x, max_x + 1):
-                    # Check if the pixel is inside the triangle.
-                    if (w0 >= 0 and w1 >= 0 and w2 >= 0) or (
-                        w0 <= 0 and w1 <= 0 and w2 <= 0
-                    ):
-
-                        # Calculate barycentric coordinates.
+                for _ in range(min_x, max_x + 1):
+                    if (w0 >= 0 and w1 >= 0 and w2 >= 0) or (w0 <= 0 and w1 <= 0 and w2 <= 0):
                         bw0 = w0 * inv_area
                         bw1 = w1 * inv_area
                         bw2 = w2 * inv_area
-
-                        # Interpolate depth (z-value).
                         z = bw0 * z0 + bw1 * z1 + bw2 * z2
 
+                        # --- PER-PIXEL OCCLUSION ---
                         if z < depth_buffer[base_index]:
                             depth_buffer[base_index] = z
                             color_buffer[base_index] = rgba
 
-                    # Increment weights for the next pixel.
                     w0 += dw0dx
                     w1 += dw1dx
                     w2 += dw2dx
                     base_index += 1
 
-                # Increment weights for the next row.
                 w0_row += dw0dy
                 w1_row += dw1dy
                 w2_row += dw2dy

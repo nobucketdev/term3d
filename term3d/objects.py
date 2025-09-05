@@ -142,7 +142,6 @@ class Camera:
 
 
 class Transform:
-
     def __init__(
         self,
         pos: Optional[Vec3] = None,
@@ -150,25 +149,46 @@ class Transform:
         scale: Optional[Vec3] = None,
         pivot: Optional[Vec3] = None,
     ):
-        self.pos = pos if pos is not None else Vec3(0, 0, 0)
-        self.rot = rot if rot is not None else Vec3(0, 0, 0)  # pitch, yaw, roll
-        self.scale = scale if scale is not None else Vec3(1, 1, 1)
-        # NEW: The point around which rotation and scaling occurs.
-        self.pivot = pivot if pivot is not None else Vec3(0, 0, 0)
+        self.pos = pos if pos else Vec3(0, 0, 0)
+        self.rot = rot if rot else Vec3(0, 0, 0)
+        self.scale = scale if scale else Vec3(1, 1, 1)
+        self.pivot = pivot if pivot else Vec3(0, 0, 0)
 
     def to_matrix(self) -> Mat4:
-        # T_pos * T_pivot * R_rot * S_scale * T_neg_pivot
-        # This order applies transformations around the pivot point.
-        return (
-            Mat4.translate(self.pos.x, self.pos.y, self.pos.z)
-            * Mat4.translate(self.pivot.x, self.pivot.y, self.pivot.z)
-            * Mat4.rotate_y(self.rot.y)
-            * Mat4.rotate_x(self.rot.x)
-            * Mat4.rotate_z(self.rot.z)
-            * Mat4.scale(self.scale.x, self.scale.y, self.scale.z)
-            * Mat4.translate(-self.pivot.x, -self.pivot.y, -self.pivot.z)
-        )
+        sx, sy, sz = self.scale.x, self.scale.y, self.scale.z
+        px, py, pz = self.pivot.x, self.pivot.y, self.pivot.z
+        tx, ty, tz = self.pos.x, self.pos.y, self.pos.z
+        rx, ry, rz = self.rot.x, self.rot.y, self.rot.z
 
+        # Precompute sine/cosine for rotation
+        cx, sx_ = math.cos(rx), math.sin(rx)
+        cy, sy_ = math.cos(ry), math.sin(ry)
+        cz, sz_ = math.cos(rz), math.sin(rz)
+
+        # Combined rotation * scale
+        m = Mat4()
+        m.m[0] = (cy * cz) * sx
+        m.m[1] = (cy * sz_) * sx
+        m.m[2] = -sy_ * sx
+        m.m[3] = 0.0
+
+        m.m[4] = (sx_ * sy_ * cz - cx * sz_) * sy
+        m.m[5] = (sx_ * sy_ * sz_ + cx * cz) * sy
+        m.m[6] = (sx_ * cy) * sy
+        m.m[7] = 0.0
+
+        m.m[8] = (cx * sy_ * cz + sx_ * sz_) * sz
+        m.m[9] = (cx * sy_ * sz_ - sx_ * cz) * sz
+        m.m[10] = (cx * cy) * sz
+        m.m[11] = 0.0
+
+        # Translation including pivot
+        m.m[12] = tx + px - (m.m[0]*px + m.m[4]*py + m.m[8]*pz)
+        m.m[13] = ty + py - (m.m[1]*px + m.m[5]*py + m.m[9]*pz)
+        m.m[14] = tz + pz - (m.m[2]*px + m.m[6]*py + m.m[10]*pz)
+        m.m[15] = 1.0
+
+        return m
 
 class SceneNode:
 
