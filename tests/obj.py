@@ -1,4 +1,3 @@
-
 """
 viewer.py - Simple OBJ viewer for Term3D
 
@@ -10,11 +9,11 @@ Examples:
     python viewer.py pumpkin.obj --width 120 --height 50 --ambient 30 30 60
 """
 
-import sys
-import math
 import argparse
-from pathlib import Path
+import math
 import shutil
+import sys
+from pathlib import Path
 
 # import your engine pieces
 import term3d.core as core_mod
@@ -65,32 +64,72 @@ def center_and_scale_mesh(mesh: Mesh, target_size=1.6):
     if mesh.min_v is None or mesh.max_v is None:
         return
     min_v, max_v = mesh.min_v, mesh.max_v
-    center = Vec3((min_v.x + max_v.x) / 2, (min_v.y + max_v.y) / 2, (min_v.z + max_v.z) / 2)
+    center = Vec3(
+        (min_v.x + max_v.x) / 2, (min_v.y + max_v.y) / 2, (min_v.z + max_v.z) / 2
+    )
     size_x, size_y, size_z = max_v.x - min_v.x, max_v.y - min_v.y, max_v.z - min_v.z
     max_dim = max(size_x, size_y, size_z)
     scale = target_size / max_dim if max_dim > 0 else 1.0
 
     for v in mesh.verts:
-        v.x, v.y, v.z = (v.x - center.x) * scale, (v.y - center.y) * scale, (v.z - center.z) * scale
+        v.x, v.y, v.z = (
+            (v.x - center.x) * scale,
+            (v.y - center.y) * scale,
+            (v.z - center.z) * scale,
+        )
 
     mesh.calculate_bounds()
 
+
 def parse_args():
     p = argparse.ArgumentParser(description="Simple OBJ viewer for Term3D")
-    p.add_argument("objfile", nargs="?", default=None, help="Path to OBJ file (default: test/teapot.obj)")
-    p.add_argument("--fov", type=float, default=60.0, help="Camera field of view in degrees")
-    p.add_argument("--size", type=float, default=1.6, help="Target size for scaling model")
+    p.add_argument(
+        "objfile",
+        nargs="?",
+        default=None,
+        help="Path to OBJ file (default: test/teapot.obj)",
+    )
+    p.add_argument(
+        "--fov", type=float, default=60.0, help="Camera field of view in degrees"
+    )
+    p.add_argument(
+        "--size", type=float, default=1.6, help="Target size for scaling model"
+    )
     p.add_argument("--width", type=int, help="Override terminal width")
     p.add_argument("--height", type=int, help="Override terminal height")
-    p.add_argument("--material", choices=["flat", "wireframe", "phong"],
-               default="flat", help="Initial material mode")
-    p.add_argument("--no-autorotate", action="store_true", help="Disable auto-rotation at start")
-    p.add_argument("--ambient", type=int, nargs=3, metavar=("R", "G", "B"), default=(60, 60, 50),
-                   help="Ambient light RGB")
-    p.add_argument("--light-dir", type=float, nargs=3, metavar=("X", "Y", "Z"),
-                   default=(0.5, 0.7, 0), help="Directional light vector")
-    p.add_argument("--light-color", type=int, nargs=3, metavar=("R", "G", "B"),
-                   default=(255, 255, 255), help="Directional light color")
+    p.add_argument(
+        "--material",
+        choices=["flat", "wireframe", "phong"],
+        default="flat",
+        help="Initial material mode",
+    )
+    p.add_argument(
+        "--no-autorotate", action="store_true", help="Disable auto-rotation at start"
+    )
+    p.add_argument(
+        "--ambient",
+        type=int,
+        nargs=3,
+        metavar=("R", "G", "B"),
+        default=(60, 60, 50),
+        help="Ambient light RGB",
+    )
+    p.add_argument(
+        "--light-dir",
+        type=float,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=(0.5, 0.7, 0),
+        help="Directional light vector",
+    )
+    p.add_argument(
+        "--light-color",
+        type=int,
+        nargs=3,
+        metavar=("R", "G", "B"),
+        default=(255, 255, 255),
+        help="Directional light color",
+    )
     p.add_argument("--zoom", type=float, default=-1.0, help="Initial camera z position")
     return p.parse_args()
 
@@ -158,12 +197,17 @@ def main():
     engine.set_key_binding("d", lambda: engine.rotate_camera(y=-0.1))
     engine.set_key_binding("q", lambda: engine.zoom_camera(-0.3))
     engine.set_key_binding("e", lambda: engine.zoom_camera(0.3))
-    engine.set_key_binding("r", lambda: (engine.set_camera_position(0, 0, args.zoom),
-                                         engine.set_camera_rotation(0, 0, 0)))
-    engine.set_key_binding("i", lambda: engine.rotate_camera(x=0.07))   # up
+    engine.set_key_binding(
+        "r",
+        lambda: (
+            engine.set_camera_position(0, 0, args.zoom),
+            engine.set_camera_rotation(0, 0, 0),
+        ),
+    )
+    engine.set_key_binding("i", lambda: engine.rotate_camera(x=0.07))  # up
     engine.set_key_binding("k", lambda: engine.rotate_camera(x=-0.07))  # down
-    engine.set_key_binding("j", lambda: engine.move_camera(x=-0.3))     # left
-    engine.set_key_binding("l", lambda: engine.move_camera(x=0.3))      # right
+    engine.set_key_binding("j", lambda: engine.move_camera(x=-0.3))  # left
+    engine.set_key_binding("l", lambda: engine.move_camera(x=0.3))  # right
 
     def on_update(dt):
         if rotating:
@@ -172,7 +216,9 @@ def main():
 
     engine.set_on_update(on_update)
     engine.set_title(f"OBJ Viewer - {objpath.name}")
-    print("Controls: w/s/a/d q/e r m (toggle material) SPACE (toggle rotation), ESC to quit")
+    print(
+        "Controls: w/s/a/d q/e r m (toggle material) SPACE (toggle rotation), ESC to quit"
+    )
     engine.run()
 
 

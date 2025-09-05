@@ -110,15 +110,22 @@ class Mesh:
 
         for v in self.verts[1:]:
             x, y, z = v.x, v.y, v.z
-            if x < min_x: min_x = x
-            elif x > max_x: max_x = x
-            if y < min_y: min_y = y
-            elif y > max_y: max_y = y
-            if z < min_z: min_z = z
-            elif z > max_z: max_z = z
+            if x < min_x:
+                min_x = x
+            elif x > max_x:
+                max_x = x
+            if y < min_y:
+                min_y = y
+            elif y > max_y:
+                max_y = y
+            if z < min_z:
+                min_z = z
+            elif z > max_z:
+                max_z = z
 
         self.min_v = Vec3(min_x, min_y, min_z)
         self.max_v = Vec3(max_x, max_y, max_z)
+
 
 class Camera:
     """

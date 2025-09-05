@@ -276,16 +276,16 @@ class Renderer:
     # --- Shading and Rasterization ---
     def _calculate_flat_color(
         self,
-        base_color: Tuple[int,int,int],
+        base_color: Tuple[int, int, int],
         normal: Vec3,
         frag_pos: Vec3,
         lights: list,
-        ambient_light: Tuple[float,float,float]
-    ) -> Tuple[int,int,int]:
+        ambient_light: Tuple[float, float, float],
+    ) -> Tuple[int, int, int]:
         """Optimized flat shading: ambient + diffuse."""
-        br,bg,bb = base_color
-        ar,ag,ab = ambient_light
-        nx,ny,nz = normal.x, normal.y, normal.z
+        br, bg, bb = base_color
+        ar, ag, ab = ambient_light
+        nx, ny, nz = normal.x, normal.y, normal.z
 
         # Start with ambient
         total_r = br * ar
@@ -293,23 +293,28 @@ class Renderer:
         total_b = bb * ab
 
         for ltype, ldata, lcolor, lintensity in lights:
-            lr,lg,lb = lcolor
+            lr, lg, lb = lcolor
 
-            if ltype=="directional":
+            if ltype == "directional":
                 light_dir = -ldata
-                diff = nx*light_dir.x + ny*light_dir.y + nz*light_dir.z
+                diff = nx * light_dir.x + ny * light_dir.y + nz * light_dir.z
                 if diff <= 0.0:
                     continue
                 factor = diff * lintensity
-            elif ltype=="spot":
+            elif ltype == "spot":
                 L = (ldata.position - frag_pos).norm()
-                diff = max(normal.dot(L),0.0)
+                diff = max(normal.dot(L), 0.0)
                 if diff <= 0.0:
                     continue
-                factor = diff * lintensity * ldata.cone_factor(frag_pos) * ldata.attenuation(frag_pos)
-            elif ltype=="point":
+                factor = (
+                    diff
+                    * lintensity
+                    * ldata.cone_factor(frag_pos)
+                    * ldata.attenuation(frag_pos)
+                )
+            elif ltype == "point":
                 L = (ldata.position - frag_pos).norm()
-                diff = max(normal.dot(L),0.0)
+                diff = max(normal.dot(L), 0.0)
                 if diff <= 0.0:
                     continue
                 factor = diff * lintensity * ldata.attenuation(frag_pos)
@@ -321,21 +326,24 @@ class Renderer:
             total_g += bg * lg * factor
             total_b += bb * lb * factor
 
-        return clamp(int(total_r),0,255), clamp(int(total_g),0,255), clamp(int(total_b),0,255)
-
+        return (
+            clamp(int(total_r), 0, 255),
+            clamp(int(total_g), 0, 255),
+            clamp(int(total_b), 0, 255),
+        )
 
     def _calculate_phong_color(
         self,
-        base_color: Tuple[int,int,int],
+        base_color: Tuple[int, int, int],
         normal: Vec3,
         view_dir: Vec3,
         lights: list,
-        ambient_light: Tuple[float,float,float],
-        frag_pos: Vec3
-    ) -> Tuple[int,int,int]:
+        ambient_light: Tuple[float, float, float],
+        frag_pos: Vec3,
+    ) -> Tuple[int, int, int]:
         """Optimized Phong shading: ambient + diffuse + specular."""
-        br,bg,bb = base_color
-        ar,ag,ab = ambient_light
+        br, bg, bb = base_color
+        ar, ag, ab = ambient_light
 
         specular_strength = 0.5
         shininess = 32
@@ -349,19 +357,19 @@ class Renderer:
             lr, lg, lb = lcolor
 
             # Compute light vector and factors
-            if ltype=="directional":
+            if ltype == "directional":
                 light_vec = -ldata
                 light_vec_norm = light_vec.norm()
                 diff = max(normal.dot(light_vec_norm), 0.0)
                 spot_factor = 1.0
                 dist_factor = 1.0
-            elif ltype=="spot":
+            elif ltype == "spot":
                 L = (ldata.position - frag_pos).norm()
                 light_vec_norm = L
                 diff = max(normal.dot(L), 0.0)
                 spot_factor = ldata.cone_factor(frag_pos)
                 dist_factor = ldata.attenuation(frag_pos)
-            elif ltype=="point":
+            elif ltype == "point":
                 L = (ldata.position - frag_pos).norm()
                 light_vec_norm = L
                 diff = max(normal.dot(L), 0.0)
@@ -385,14 +393,19 @@ class Renderer:
             dot_nl = normal.dot(light_vec_norm)
             reflect_dir = (normal * 2 * dot_nl - light_vec_norm).norm()
             spec = max(view_dir.dot(reflect_dir), 0.0) ** shininess
-            spec_factor = 255 * specular_strength * spec * lintensity * spot_factor * dist_factor
+            spec_factor = (
+                255 * specular_strength * spec * lintensity * spot_factor * dist_factor
+            )
 
             total_r += lr * spec_factor
             total_g += lg * spec_factor
             total_b += lb * spec_factor
 
-        return clamp(int(total_r),0,255), clamp(int(total_g),0,255), clamp(int(total_b),0,255)
-
+        return (
+            clamp(int(total_r), 0, 255),
+            clamp(int(total_g), 0, 255),
+            clamp(int(total_b), 0, 255),
+        )
 
     def _draw_wireframe(self, mesh, projected_verts, color=(255, 255, 255)):
         """Draws triangle edges as lines (Bresenham) with depth check."""
@@ -574,36 +587,44 @@ class Renderer:
         sub_pixels = cf * cf
 
         # Precompute row and column indices to avoid min() in inner loop
-        top_rows = [min(cy*2*cf + sy, ph-1) for cy in range(ch) for sy in range(cf)]
-        bot_rows = [min(cy*2*cf + cf + sy, ph-1) for cy in range(ch) for sy in range(cf)]
-        cols = [min(cx*cf + sx, pw-1) for cx in range(cw) for sx in range(cf)]
+        top_rows = [
+            min(cy * 2 * cf + sy, ph - 1) for cy in range(ch) for sy in range(cf)
+        ]
+        bot_rows = [
+            min(cy * 2 * cf + cf + sy, ph - 1) for cy in range(ch) for sy in range(cf)
+        ]
+        cols = [min(cx * cf + sx, pw - 1) for cx in range(cw) for sx in range(cf)]
 
         for cy in range(ch):
             row_chars = []
 
             # Compute base offsets for this row
-            top_row_indices = top_rows[cy*cf : (cy+1)*cf]
-            bot_row_indices = bot_rows[cy*cf : (cy+1)*cf]
+            top_row_indices = top_rows[cy * cf : (cy + 1) * cf]
+            bot_row_indices = bot_rows[cy * cf : (cy + 1) * cf]
 
             for cx in range(cw):
                 tr = tg = tb = 0
                 br = bg = bb = 0
 
                 # Compute pixel column indices for this character
-                col_indices = cols[cx*cf : (cx+1)*cf]
+                col_indices = cols[cx * cf : (cx + 1) * cf]
 
                 # Accumulate colors
                 for ty in top_row_indices:
                     top_offset = ty * pw
                     for px in col_indices:
-                        r,g,b,_ = color_buffer[top_offset + px]
-                        tr += r; tg += g; tb += b
+                        r, g, b, _ = color_buffer[top_offset + px]
+                        tr += r
+                        tg += g
+                        tb += b
 
                 for by in bot_row_indices:
                     bot_offset = by * pw
                     for px in col_indices:
-                        r,g,b,_ = color_buffer[bot_offset + px]
-                        br += r; bg += g; bb += b
+                        r, g, b, _ = color_buffer[bot_offset + px]
+                        br += r
+                        bg += g
+                        bb += b
 
                 # Average colors
                 top_rgb = (tr // sub_pixels, tg // sub_pixels, tb // sub_pixels)
